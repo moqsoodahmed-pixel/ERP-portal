@@ -1,0 +1,19 @@
+{
+  "name": "tally-connector",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 16 — Windows Tally Connector (Side B). Polls the ERP cloud, claims SYNC_BILL_TO_TALLY jobs, talks to a local TallyPrime instance, and reports results back. No ERP business logic lives here; the ERP is the source of truth.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test tests/**/*.test.js",
+    "lint": "node --check src/index.js && node --check src/jobs/runner.js && node --check src/api/erpClient.js && node --check src/tally/localTallyAdapter.js && node --check src/tally/tallyClient.js && node --check src/config/index.js",
+    "build": "node --check src/index.js && echo \"connector: syntax OK (pure Node.js runtime, no bundling step required)\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,0 +1,48 @@
+{
+  "name": "erp-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant ERP + GST billing + Tally integration backend (modular monolith)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\"",
+    "test:unit": "node --test --test-concurrency=1 \"tests/unit/**/*.test.js\"",
+    "test:integration": "node --test --test-concurrency=1 \"tests/integration/**/*.test.js\"",
+    "lint": "eslint src tests",
+    "seed": "node src/scripts/seed.js",
+    "audit:deps": "npm audit --audit-level=high"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "axios": "^1.20.0",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "decimal.js": "^10.6.0",
+    "dotenv": "^18.0.5",
+    "express": "^4.22.3",
+    "express-rate-limit": "^8.7.0",
+    "fast-xml-parser": "^5.11.2",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.4",
+    "pdfkit": "^0.20.2",
+    "pino": "^10.4.0",
+    "swagger-ui-express": "^5.0.1",
+    "xmlbuilder2": "^4.0.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "mongodb-memory-server": "^11.3.0",
+    "pdf-parse": "^2.4.5",
+    "supertest": "^7.3.1"
+  }
+}

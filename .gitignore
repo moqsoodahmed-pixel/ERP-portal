@@ -1,0 +1,31 @@
+# >>> PUT THIS FILE AT: erp-platform/.gitignore  (top folder, next to backend/ frontend/ connector/)
+# >>> Rename it to exactly: .gitignore
+
+
+# Dependencies
+node_modules/
+
+# Secrets: never commit real env files, only the examples
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Test output
+coverage/
+
+# Private keys / certificates
+*.pem
+*.key

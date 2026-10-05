@@ -1,0 +1,45 @@
+# DEVELOPMENT ONLY. The secrets below are public, throw-away values and must never be reused anywhere else.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports: ["27017:27017"]
+    volumes: ["mongo_data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      target: deps
+    command: sh -c "npm install && node --watch src/server.js"
+    working_dir: /app
+    volumes: ["./backend:/app", "backend_modules:/app/node_modules"]
+    ports: ["4000:4000"]
+    depends_on:
+      mongo: { condition: service_healthy }
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/erp_dev
+      JWT_ACCESS_SECRET: dev-only-access-secret-do-not-use-elsewhere-0001
+      JWT_REFRESH_SECRET: dev-only-refresh-secret-do-not-use-elsewhere-0002
+      ENCRYPTION_KEY: ZGV2b25seS1lbmNyeXB0aW9uLWtleS0wMTIzNDU2Nzg=
+      CORS_ORIGIN: http://localhost:5173
+      COOKIE_SECURE: "false"
+
+  frontend:
+    build: ./frontend
+    ports: ["5173:5173"]
+    depends_on: [backend]
+    environment:
+      VITE_PROXY_TARGET: http://backend:4000
+    volumes: ["./frontend:/app", "frontend_modules:/app/node_modules"]
+
+volumes:
+  mongo_data:
+  backend_modules:
+  frontend_modules:

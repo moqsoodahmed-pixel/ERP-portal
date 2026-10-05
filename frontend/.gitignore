@@ -1,0 +1,27 @@
+# >>> PUT THIS FILE AT: erp-platform/frontend/.gitignore
+# >>> Rename it to exactly: .gitignore
+
+
+# Dependencies
+node_modules/
+
+# Vite build output (Cloudflare Pages builds this itself)
+dist/
+dist-ssr/
+
+# Vite / Vitest caches
+.vite/
+coverage/
+
+# Cloudflare local dev (wrangler)
+.wrangler/
+.dev.vars
+
+# Env files: VITE_* values end up in the public bundle anyway, but keep local ones out
+.env
+.env.*
+!.env.example
+
+# Logs / OS
+*.log
+.DS_Store

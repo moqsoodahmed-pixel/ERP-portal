@@ -1,0 +1,25 @@
+# >>> PUT THIS FILE AT: erp-platform/backend/.gitignore
+# >>> Rename it to exactly: .gitignore
+
+
+# Dependencies
+node_modules/
+
+# Secrets: JWT secrets, encryption key, MongoDB URI
+.env
+.env.*
+!.env.example
+
+# Generated documents: customer invoice PDFs and uploaded bills (private tenant data)
+storage/
+uploads/
+
+# PM2 / app logs
+logs/
+*.log
+
+# Test output
+coverage/
+
+# OS
+.DS_Store

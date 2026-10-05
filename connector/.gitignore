@@ -1,0 +1,18 @@
+# >>> PUT THIS FILE AT: erp-platform/connector/.gitignore
+# >>> Rename it to exactly: .gitignore
+
+
+# Dependencies
+node_modules/
+
+# Contains TALLY_CONNECTOR_SECRET: never commit
+.env
+.env.*
+!.env.example
+
+# Connector log file (LOG_FILE_PATH)
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
