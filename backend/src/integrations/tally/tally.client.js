@@ -37,6 +37,26 @@ function classifyRejection(message) {
  */
 export class TallyClient {
   async send(integration, xmlBody) {
+    const xmlText = await this.#post(integration, xmlBody);
+    return this.#parseResponse(xmlText);
+  }
+
+  /**
+   * Phase 20 — read path: POSTs a "Voucher Register" export request (same XML-over-HTTP transport as
+   * `send()` above, same SSRF/timeout/size guards) and parses back a list of vouchers instead of an
+   * IMPORTRESULT acknowledgement. NOTE: TallyPrime's exact export XML schema for this report has not been
+   * verified against a real TallyPrime instance in this environment (same documented caveat as the
+   * IMPORTRESULT rejection-message classification in classifyRejection() above — see
+   * docs/tally-integration.md "NOT AVAILABLE"); the shape parsed here (`ENVELOPE.VOUCHER[]` with
+   * DATE/VOUCHERNUMBER/PARTYNAME/NARRATION/AMOUNT) follows Tally's documented "Day Book"-style voucher
+   * collection export.
+   */
+  async fetchVouchers(integration, xmlBody) {
+    const xmlText = await this.#post(integration, xmlBody);
+    return this.#parseVoucherList(xmlText);
+  }
+
+  async #post(integration, xmlBody) {
     const url = await assertSafeTallyUrl(integration.baseUrl);
     const timeout = clampTimeout(integration.timeoutMs);
     const maxBytes = TALLY_NETWORK_DEFAULTS.maxResponseBytes;
@@ -69,7 +89,35 @@ export class TallyClient {
     if (response.status >= 400) {
       throw new IntegrationError(`Tally endpoint returned HTTP ${response.status}`, TALLY_ERROR_CODES.REJECTED, 502);
     }
-    return this.#parseResponse(response.data);
+    return response.data;
+  }
+
+  #parseVoucherList(xmlText) {
+    let parsed;
+    try {
+      parsed = parser.parse(String(xmlText ?? ''));
+    } catch {
+      throw new IntegrationError('Tally returned a response that could not be parsed', TALLY_ERROR_CODES.MALFORMED_RESPONSE, 502);
+    }
+    const envelope = parsed?.ENVELOPE;
+    if (envelope === undefined || envelope === null) {
+      throw new IntegrationError('Tally returned an unrecognized response shape', TALLY_ERROR_CODES.MALFORMED_RESPONSE, 502);
+    }
+    // An empty <ENVELOPE></ENVELOPE> (zero vouchers — a valid, non-error result) parses to '' rather than
+    // {}, since fast-xml-parser represents a childless element as an empty string; only a non-object,
+    // non-empty-string value is an actually-unrecognized shape.
+    if (typeof envelope !== 'object' && envelope !== '') {
+      throw new IntegrationError('Tally returned an unrecognized response shape', TALLY_ERROR_CODES.MALFORMED_RESPONSE, 502);
+    }
+    const raw = typeof envelope === 'object' ? envelope.VOUCHER : undefined;
+    const list = raw === undefined || raw === null || raw === '' ? [] : (Array.isArray(raw) ? raw : [raw]);
+    return list.map((v) => ({
+      voucherNumber: v?.VOUCHERNUMBER !== undefined ? String(v.VOUCHERNUMBER) : undefined,
+      date: v?.DATE !== undefined ? String(v.DATE) : undefined,
+      party: v?.PARTYNAME !== undefined ? String(v.PARTYNAME) : undefined,
+      narration: v?.NARRATION !== undefined ? String(v.NARRATION) : undefined,
+      amount: v?.AMOUNT !== undefined ? String(v.AMOUNT) : undefined,
+    }));
   }
 
   #parseResponse(xmlText) {

@@ -38,6 +38,16 @@ export const createBusinessProfileController = ({ businessProfileService }) => (
   get: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.get(ctx(req)))),
   create: asyncHandler(async (req, res) => created(req, res, await businessProfileService.create(ctx(req), req.body))),
   update: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.update(ctx(req), req.body))),
+  uploadLogo: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.uploadLogo(ctx(req), req.body), 'Logo uploaded')),
+  removeLogo: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.removeLogo(ctx(req)), 'Logo removed')),
+  getLogo: asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await businessProfileService.getLogo(ctx(req));
+    const safeName = String(fileName ?? 'logo').replace(/[^A-Za-z0-9-_.]/g, '_');
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.status(200).send(buffer);
+  }),
 });
 
 export const createProductController = ({ productService }) => crudController(productService);

@@ -9,6 +9,9 @@ export const createGSTFilingController = ({ gstFilingService }) => ({
   list: asyncHandler(async (req, res) => ok(req, res, await gstFilingService.list(
     { role: req.auth.role, tenantId: req.auth.tenantId, vendorId: req.auth.vendorId }, req.query,
   ))),
+  progress: asyncHandler(async (req, res) => ok(req, res, await gstFilingService.progress(
+    { role: req.auth.role, tenantId: req.auth.tenantId, vendorId: req.auth.vendorId },
+  ))),
   create: asyncHandler(async (req, res) => created(req, res, await gstFilingService.create(ctx(req), req.body), 'GST filing workflow created')),
   get: asyncHandler(async (req, res) => ok(req, res, await gstFilingService.get(ctx(req), req.filing))),
   update: asyncHandler(async (req, res) => ok(req, res, await gstFilingService.update(ctx(req), req.filing, req.body), 'GST filing updated')),

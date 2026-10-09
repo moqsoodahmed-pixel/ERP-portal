@@ -18,6 +18,15 @@ export const GST_FILING_STATUS = e(
 export const FILING_STATUS = e('NOT_STARTED', 'IN_PROGRESS', 'READY_FOR_REVIEW', 'SUBMITTED', 'FILED');
 export const FILING_RETURN_TYPE = e('GSTR_1', 'GSTR_3B');
 export const FILING_SUBMISSION_SOURCE = e('MANUALLY_RECORDED');
+
+/**
+ * Phase 20 — GST Bill <-> Tally bill-by-bill matching. Per-line-item result (one per GSTBill.items[]
+ * entry, since GSTBill has no separate per-bill identifier/sub-collection — see GSTBillMatch model doc
+ * comment) and the overall filing-level verdict derived ONLY from the individual results below (never a
+ * value the client/frontend can submit directly).
+ */
+export const GST_BILL_MATCH_STATUS = e('MATCHED', 'MISMATCH', 'NOT_FOUND', 'DUPLICATE', 'ERROR');
+export const GST_BILL_OVERALL_MATCH_STATUS = e('FULLY_MATCHED', 'PARTIAL_MATCH', 'NOT_MATCHED', 'TALLY_ERROR');
 export const FILING_MILESTONE_STATUS = e('PENDING', 'IN_PROGRESS', 'DONE');
 
 export const FILING_ISSUE_TYPE = e(
@@ -121,6 +130,12 @@ export const AUDIT_ACTIONS = e(
   'TALLY_JOB_CREATED', 'TALLY_JOB_CLAIMED', 'TALLY_JOB_CLAIM_CONFLICT', 'TALLY_JOB_SUCCEEDED', 'TALLY_JOB_FAILED', 'TALLY_JOB_RETRIED',
   // Phase 16.1: scheduled offline monitor transitions.
   'TALLY_CONNECTOR_OFFLINE', 'TALLY_CONNECTOR_RECOVERED',
+  // Phase 19: GST Bill Builder (filing-scoped internal GST sales bill).
+  'GST_BILL_CREATED', 'GST_BILL_UPDATED', 'GST_BILL_DOCUMENT_UPLOADED',
+  // Phase 20: GST Bill <-> Tally bill-by-bill matching.
+  'TALLY_MATCH_STARTED', 'TALLY_MATCH_COMPLETED', 'TALLY_MATCH_FAILED',
+  // Phase 21: vendor final-document upload (client GST Billing Dashboard visibility).
+  'GST_FINAL_DOCUMENT_UPLOADED',
 );
 
 export const SECURITY_EVENT_TYPES = e(

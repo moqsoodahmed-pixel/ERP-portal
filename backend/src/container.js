@@ -11,6 +11,8 @@ import { InvoiceService } from './services/invoice.service.js';
 import { InvoiceCalculationService } from './services/invoiceCalculation.service.js';
 import { VendorService } from './services/vendor.service.js';
 import { GSTFilingService } from './services/gstFiling.service.js';
+import { GSTBillService } from './services/gstBill.service.js';
+import { GSTBillMatchingService } from './services/gstBillMatching.service.js';
 import { TallyConfigService, TallySyncService } from './integrations/tally/tally.service.js';
 import { TallyAdapter } from './integrations/tally/tally.adapter.js';
 import { TallyClient } from './integrations/tally/tally.client.js';
@@ -57,7 +59,9 @@ export function buildContainer(models) {
       notificationService,
     }),
     userService: new UserService({ userRepo: repos.users, auditService }),
-    businessProfileService: new BusinessProfileService({ businessProfileRepo: repos.businessProfiles, auditService }),
+    businessProfileService: new BusinessProfileService({
+      businessProfileRepo: repos.businessProfiles, fileMetadataRepo: repos.fileMetadata, storageService, auditService,
+    }),
     productService: new ProductService({ productRepo: repos.products, counterRepo: repos.counters, auditService }),
     customerService: new CustomerService({ customerRepo: repos.customers, counterRepo: repos.counters, auditService }),
     vendorService: new VendorService({
@@ -67,7 +71,12 @@ export function buildContainer(models) {
     gstFilingService: new GSTFilingService({
       gstFilingRepo: repos.gstFilings, gstFilingIssueRepo: repos.gstFilingIssues, tenantRepo: repos.tenants, userRepo: repos.users,
       assignmentRepo: repos.assignments, invoiceRepo: repos.invoices, tallySyncRepo: repos.tallySyncs, businessProfileRepo: repos.businessProfiles, auditService,
-      notificationService,
+      notificationService, gstBillRepo: repos.gstBills, gstBillMatchRepo: repos.gstBillMatches,
+    }),
+    gstBillService: new GSTBillService({
+      gstBillRepo: repos.gstBills, fileMetadataRepo: repos.fileMetadata, storageService, auditService,
+      assignmentRepo: repos.assignments, businessProfileRepo: repos.businessProfiles, tenantRepo: repos.tenants,
+      gstBillMatchRepo: repos.gstBillMatches,
     }),
   };
   services.reportService = new ReportService({ reportRepo: repos.reports, auditService, gstFilingService: services.gstFilingService });
@@ -81,6 +90,12 @@ export function buildContainer(models) {
   services.tallyConfigService = new TallyConfigService({ integrationRepo: repos.tallyIntegrations, adapter: tallyAdapter, encryption, auditService });
   services.tallySyncService = new TallySyncService({
     syncRepo: repos.tallySyncs, integrationRepo: repos.tallyIntegrations, adapter: tallyAdapter, invoiceService, auditService, encryption, notificationService,
+  });
+  // Phase 20: GST Bill <-> Tally bill-by-bill matching. Reuses the SAME TallyIntegration config/adapter/
+  // encryption as the invoice sync path above — no second Tally connection system.
+  services.gstBillMatchingService = new GSTBillMatchingService({
+    gstBillRepo: repos.gstBills, gstBillMatchRepo: repos.gstBillMatches, tallyIntegrationRepo: repos.tallyIntegrations,
+    tallyAdapter, encryption, auditService,
   });
   // Phase 13: Tally Public API (Tally/TDL -> ERP direction). tallyApiKeyService owns key lifecycle +
   // authentication; tallyPublicApiService is a thin projection over the SAME services every JWT-authenticated

@@ -89,15 +89,24 @@ test('Phase 8: GST filing workflow tracker — creation, access chain, state mac
     await api.patch(`/api/v1/vendors/${vendor._id}`).set(m).send({ userStatus: 'ACTIVE' });
   });
 
-  await t.test('client access: own tenant allowed, read-only; other tenant denied; cannot trigger transitions', async () => {
+  await t.test('client access: own tenant allowed, read-only on transitions; other tenant denied; can create own filing but never for another tenant', async () => {
     const own = await api.get(`/api/v1/gst-filings/${h.filingA._id}`).set(aAdmin);
     assert.equal(own.status, 200);
     const other = await api.get(`/api/v1/gst-filings/${h.filingA._id}`).set(bAdmin);
     assert.equal(other.status, 403);
     const blocked = await api.post(`/api/v1/gst-filings/${h.filingA._id}/start`).set(aAdmin);
     assert.equal(blocked.status, 403);
-    const blockedCreate = await api.post('/api/v1/gst-filings').set(aAdmin).send({ periodKey: '2026-06', returnType: 'GSTR_1' });
-    assert.equal(blockedCreate.status, 403);
+
+    // Phase 19: CLIENT_ADMIN can start their own filing (New Filing + Company Details) for their own tenant...
+    const ownCreate = await api.post('/api/v1/gst-filings').set(aAdmin).send({ periodKey: '2026-06', returnType: 'GSTR_1' });
+    assert.equal(ownCreate.status, 201);
+    assert.equal(String(ownCreate.body.data.tenantId), String(A.tenant._id));
+
+    // ...but a client-supplied tenantId is always overwritten with their own tenant, never merely checked —
+    // so a client can never create a filing workflow for another tenant by editing the request body.
+    const spoofed = await api.post('/api/v1/gst-filings').set(aAdmin).send({ tenantId: String(B.tenant._id), periodKey: '2026-07', returnType: 'GSTR_1' });
+    assert.equal(spoofed.status, 201);
+    assert.equal(String(spoofed.body.data.tenantId), String(A.tenant._id));
   });
 
   await t.test('IDOR: filing id / tenant id manipulation denied', async () => {

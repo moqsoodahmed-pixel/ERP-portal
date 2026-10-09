@@ -126,6 +126,11 @@ export class FileMetadataRepository extends BaseRepository {
   }
 
   async createForTenant(tenantId, data) { return toPlain(await this.model.create({ ...data, tenantId: String(tenantId) })); }
+
+  async deleteForTenant(tenantId, id) {
+    if (!isObjectId(id)) return;
+    await this.model.deleteOne(this.scopeTenant(tenantId, { _id: String(id) }));
+  }
 }
 
 export class IdempotencyRepository extends BaseRepository {

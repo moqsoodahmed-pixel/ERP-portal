@@ -1,7 +1,7 @@
 import { create } from 'xmlbuilder2';
 import { IntegrationError } from '../../utils/errors.js';
 import { TALLY_ERROR_CODES } from './tally.constants.js';
-import { buildVoucherRequestXml } from './tally.payloadBuilder.js';
+import { buildVoucherRequestXml, buildVoucherExportRequestXml } from './tally.payloadBuilder.js';
 
 const PING_XML = create({ version: '1.0' })
   .ele('ENVELOPE').ele('HEADER').ele('TALLYREQUEST').txt('Export Data').end({ prettyPrint: false });
@@ -29,6 +29,23 @@ export class TallyAdapter {
   }
 
   async healthCheck(integration) { return this.testConnection(integration); }
+
+  /**
+   * Phase 20 — read path for GST Bill <-> Tally matching (gstBillMatching.service.js). Returns
+   * `{success:true, vouchers:[{voucherNumber, date, party, narration, amount}]}` or `{success:false,
+   * errorCode, message}` — SAME normalized shape/error-handling discipline as syncInvoice() below, never a
+   * raw thrown error for a Tally-side failure.
+   */
+  async fetchVouchers(integration, { fromDate, toDate }) {
+    const xml = buildVoucherExportRequestXml(integration, { fromDate, toDate });
+    try {
+      const vouchers = await this.client.fetchVouchers(integration, xml);
+      return { success: true, vouchers };
+    } catch (err) {
+      if (err instanceof IntegrationError) return { success: false, errorCode: err.code, message: safeMessage(err) };
+      throw err;
+    }
+  }
 
   /** Maps + builds + sends one invoice as a Tally sales voucher. Returns the client's normalized result. */
   async syncInvoice(integration, invoice) {

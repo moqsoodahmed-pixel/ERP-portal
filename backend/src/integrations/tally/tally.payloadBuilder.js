@@ -72,6 +72,36 @@ function formatAmount(v) {
   return n.toFixed(2);
 }
 
+const tallyDate = (d) => {
+  const dt = new Date(d);
+  return `${dt.getUTCFullYear()}${String(dt.getUTCMonth() + 1).padStart(2, '0')}${String(dt.getUTCDate()).padStart(2, '0')}`;
+};
+
+/**
+ * Phase 20 — "Export Data" request for a Voucher Register within a date range, scoped to the tenant's
+ * configured company (SVCURRENTCOMPANY — same company-isolation field `buildVoucherRequestXml` already
+ * uses above). Read-only: this never creates/imports anything in Tally.
+ */
+export function buildVoucherExportRequestXml(integration, { fromDate, toDate }) {
+  return create({ version: '1.0', encoding: 'UTF-8' })
+    .ele('ENVELOPE')
+      .ele('HEADER').ele('TALLYREQUEST').txt('Export Data').up().up()
+      .ele('BODY')
+        .ele('EXPORTDATA')
+          .ele('REQUESTDESC')
+            .ele('REPORTNAME').txt('Voucher Register').up()
+            .ele('STATICVARIABLES')
+              .ele('SVFROMDATE').txt(tallyDate(fromDate)).up()
+              .ele('SVTODATE').txt(tallyDate(toDate)).up()
+              .ele('SVCURRENTCOMPANY').txt(integration.companyName ?? '').up()
+            .up()
+          .up()
+        .up()
+      .up()
+    .up()
+    .end({ prettyPrint: false });
+}
+
 /**
  * Phase 16 — Tally Connector job payload for a BillIntake (spec Step 12/13).
  *

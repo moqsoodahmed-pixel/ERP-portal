@@ -5,6 +5,7 @@ import { listQuery, idParams, objectIdSchema } from '../validators/common.js';
 import { loginBody, changePasswordBody } from '../validators/auth.validators.js';
 import * as v from '../validators/resource.validators.js';
 import * as gf from '../validators/gstFiling.validators.js';
+import { gstBillSave, gstBillDocumentsUpload, gstFinalDocumentUpload } from '../validators/gstBill.validators.js';
 import { tallyConfigBody } from '../integrations/tally/tally.validators.js';
 import { tallyApiKeyCreateBody } from '../validators/tallyApiKey.validators.js';
 import {
@@ -24,6 +25,8 @@ import {
   createVendorController, createAuditController, createTallyController, createBusinessProfileController, notImplemented,
 } from '../controllers/resource.controllers.js';
 import { createGSTFilingController } from '../controllers/gstFiling.controller.js';
+import { createGSTBillController } from '../controllers/gstBill.controller.js';
+import { createGSTBillMatchingController } from '../controllers/gstBillMatching.controller.js';
 import { createBillIntakeController } from '../controllers/billIntake.controller.js';
 import { createDashboardController, createReportController, createNotificationController } from '../controllers/insights.controllers.js';
 import { createTallyApiKeyController } from '../controllers/tallyApiKey.controller.js';
@@ -117,6 +120,9 @@ export function createV1Router({ container, access, limiters }) {
   r.get('/business-profile', ...tenantScoped('business.view'), businessProfile.get);
   r.post('/business-profile', ...tenantScoped('business.update'), validate({ body: v.businessProfileCreate }), businessProfile.create);
   r.patch('/business-profile', ...tenantScoped('business.update'), validate({ body: v.businessProfileUpdate }), businessProfile.update);
+  r.get('/business-profile/logo', ...tenantScoped('business.view'), businessProfile.getLogo);
+  r.post('/business-profile/logo', ...tenantScoped('business.update'), validate({ body: v.businessProfileLogoUpload }), businessProfile.uploadLogo);
+  r.delete('/business-profile/logo', ...tenantScoped('business.update'), businessProfile.removeLogo);
 
   // ---- products / customers
   const products = createProductController(services);
@@ -147,6 +153,7 @@ export function createV1Router({ container, access, limiters }) {
   r.post('/invoices/:id/pdf', ...tenantScoped('invoices.update'), validate({ params: idParams }), invoices.regeneratePdf);
 
   // ---- vendors
+  const gstBills = createGSTBillController({ gstBillService: services.gstBillService });
   const vendorRouter = Router();
   vendorRouter.get('/me/clients', authenticate, requireRole(ROLES.GST_VENDOR), can('gst.view'), vendors.myClients);
   // Phase 9: server-side vendor dashboard (assigned tenant set derived from the vendor's own ACTIVE assignments only).
@@ -156,6 +163,9 @@ export function createV1Router({ container, access, limiters }) {
     validate({ params: z.object({ tenantId: objectIdSchema }).extend(reportTypeParams.shape), query: reportQuery }), reportPerms(false), tenantReports.run);
   vendorRouter.get('/me/clients/:tenantId/invoices', authenticate, requireVendorAssignment('tenantId'), can('invoices.view'),
     validate({ params: z.object({ tenantId: objectIdSchema }), query: listQuery }), vendors.clientInvoices);
+  // Phase 19.3: read-only, cross-tenant GST Bill handoff view — tenant set is derived ONLY from the vendor's
+  // own ACTIVE assignments (assignmentRepo), never from any id the frontend could supply.
+  vendorRouter.get('/me/gst-bills', authenticate, requireRole(ROLES.GST_VENDOR), can('gst_bills.view'), validate({ query: listQuery }), gstBills.vendorList);
   vendorRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN));
   vendorRouter.get('/', can('vendors.view'), validate({ query: listQuery }), vendors.list);
   vendorRouter.post('/', can('vendors.create'), validate({ body: v.vendorCreate }), vendors.create);
@@ -172,9 +182,13 @@ export function createV1Router({ container, access, limiters }) {
   // portal/GSTN integration. Every :id route re-verifies the full tenant/vendor-assignment chain via
   // resolveTenantForFiling (same invariant as Phase 7's invoice routes), never trusting the URL alone.
   const gstFilings = createGSTFilingController({ gstFilingService: services.gstFilingService });
+  const gstBillMatching = createGSTBillMatchingController({ gstBillMatchingService: services.gstBillMatchingService });
   const filingRouter = Router();
   filingRouter.use(authenticate);
   filingRouter.get('/', can('gst_filings.view'), validate({ query: gf.filingListQuery }), gstFilings.list);
+  // Phase 22 — read-only GST Filing workspace tracker (must precede '/:id' below so "progress" is never
+  // matched as a filing id). Client-only (service enforces CLIENT_ADMIN/CLIENT_USER); no write path.
+  filingRouter.get('/progress', can('gst_filings.view'), gstFilings.progress);
   filingRouter.post('/', can('gst_filings.create'), resolveTenantForFilingCreate, validate({ body: gf.filingCreate }), gstFilings.create);
   filingRouter.get('/:id', resolveTenantForFiling, can('gst_filings.view'), validate({ params: idParams }), gstFilings.get);
   filingRouter.patch('/:id', resolveTenantForFiling, can('gst_filings.update'), validate({ params: idParams, body: gf.filingUpdate }), gstFilings.update);
@@ -186,6 +200,29 @@ export function createV1Router({ container, access, limiters }) {
   filingRouter.post('/:id/issues', resolveTenantForFiling, can('gst_filing_issues.create'), validate({ params: idParams, body: gf.issueCreate }), gstFilings.createIssue);
   filingRouter.patch('/:id/issues/:issueId', resolveTenantForFiling, can('gst_filing_issues.update'),
     validate({ params: idParams.extend({ issueId: objectIdSchema }), body: gf.issueUpdate }), gstFilings.updateIssue);
+
+  // ---- GST Bill Builder (Phase 19) — a simple bill tied 1:1 to the filing above (serial/productName/rate
+  // line items + flat 18% GST), reusing the SAME resolveTenantForFiling ownership chain as every other
+  // :id route on this router, so a filingId never grants access to another tenant's filing/bill.
+  filingRouter.get('/:id/bill', resolveTenantForFiling, can('gst_bills.view'), validate({ params: idParams }), gstBills.get);
+  filingRouter.put('/:id/bill', resolveTenantForFiling, can('gst_bills.update'), validate({ params: idParams, body: gstBillSave }), gstBills.save);
+  filingRouter.post('/:id/bill/documents', resolveTenantForFiling, can('gst_bills.update'), validate({ params: idParams, body: gstBillDocumentsUpload }), gstBills.addDocuments);
+  filingRouter.get('/:id/bill/documents/:docId', resolveTenantForFiling, can('gst_bills.view'), validate({ params: idParams.extend({ docId: objectIdSchema }) }), gstBills.getDocument);
+
+  // ---- Vendor final document (Phase 21) — a SEPARATE document from the client's own bill upload above.
+  // Viewing uses the SAME gst_bills.view gate already covering the client bill (CLIENT_ADMIN/MASTER_ADMIN/
+  // GST_VENDOR can all see it); uploading uses the separate gst_bills.final_document.upload (GST_VENDOR +
+  // MASTER_ADMIN only — never CLIENT_ADMIN/CLIENT_USER).
+  filingRouter.post('/:id/final-document', resolveTenantForFiling, can('gst_bills.final_document.upload'), validate({ params: idParams, body: gstFinalDocumentUpload }), gstBills.addFinalDocument);
+  filingRouter.get('/:id/final-documents', resolveTenantForFiling, can('gst_bills.view'), validate({ params: idParams }), gstBills.getFinalDocuments);
+  filingRouter.get('/:id/final-documents/:docId', resolveTenantForFiling, can('gst_bills.view'), validate({ params: idParams.extend({ docId: objectIdSchema }) }), gstBills.getFinalDocument);
+
+  // ---- GST Bill <-> Tally bill-by-bill matching (Phase 20). Same resolveTenantForFiling ownership chain;
+  // viewing the result uses gst_bills.view (CLIENT_ADMIN/MASTER_ADMIN/GST_VENDOR), triggering a (re-)run
+  // uses the separate, more sensitive gst_bills.match (GST_VENDOR + MASTER_ADMIN only — never CLIENT_ADMIN).
+  filingRouter.get('/:id/tally-matching', resolveTenantForFiling, can('gst_bills.view'), validate({ params: idParams }), gstBillMatching.get);
+  filingRouter.post('/:id/tally-matching/run', resolveTenantForFiling, can('gst_bills.match'), validate({ params: idParams }), gstBillMatching.run);
+
   r.use('/gst-filings', filingRouter);
 
   // ---- legacy GST filing placeholder (PLACEHOLDER — unrelated per-invoice gstFilingStatus field, untouched by Phase 8)

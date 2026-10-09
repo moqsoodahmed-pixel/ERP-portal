@@ -15,6 +15,8 @@ const UNIQUE = {
   TallyConnector: [['secretHash']],
   TallyJob: [['tenantId', 'billIntakeId', 'type']],
   GSTFiling: [['tenantId', 'periodKey', 'returnType']],
+  GSTBill: [['tenantId', 'filingId']],
+  GSTBillMatch: [['tenantId', 'filingId']],
   // Phase 9: per-recipient notification dedup key (mirrors the unique index on the Notification schema).
   Notification: [['recipientUserId', 'dedupKey']],
   // Phase 15: bill-document storage keys are unique per tenant (mirrors the FileMetadata schema index).

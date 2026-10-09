@@ -51,11 +51,11 @@ const TRANSITIONS = {
 export class GSTFilingService {
   constructor({
     gstFilingRepo, gstFilingIssueRepo, tenantRepo, userRepo, assignmentRepo, invoiceRepo, tallySyncRepo, businessProfileRepo, auditService,
-    notificationService = null,
+    notificationService = null, gstBillRepo = null, gstBillMatchRepo = null,
   }) {
     Object.assign(this, {
       gstFilingRepo, gstFilingIssueRepo, tenantRepo, userRepo, assignmentRepo, invoiceRepo, tallySyncRepo, businessProfileRepo, auditService,
-      notificationService,
+      notificationService, gstBillRepo, gstBillMatchRepo,
     });
   }
 
@@ -91,6 +91,88 @@ export class GSTFilingService {
     const r = await this.gstFilingRepo.model.find(filter).sort(sort).skip(p.skip).limit(p.limit).lean();
     const total = await this.gstFilingRepo.model.countDocuments(filter);
     return { items: r.map((f) => ({ ...f, progressPercent: computeProgress(f.milestones) })), pagination: buildPageMeta(p, total) };
+  }
+
+  /**
+   * Phase 22 — read-only GST Filing workspace tracker. Consumes ONLY already-existing Phase 1-5 data
+   * (GSTFiling, GSTBill, GSTBillMatch, BusinessProfile) — no new persistence, no write path, and the Tally
+   * matching result is taken as-is (never recomputed here; Phase 4's own algorithm is untouched). Restricted
+   * to the authenticated client's own tenant (CLIENT_ADMIN/CLIENT_USER) — the same "this page is for the
+   * client" boundary the rest of this workspace already uses.
+   */
+  async progress(authCtx) {
+    if (authCtx.role !== ROLES.CLIENT_ADMIN && authCtx.role !== ROLES.CLIENT_USER) throw new AuthorizationError();
+    const tenantId = authCtx.tenantId;
+
+    const [profile, filings] = await Promise.all([
+      this.businessProfileRepo.findByTenant(tenantId),
+      this.gstFilingRepo.model.find(this.gstFilingRepo.scope(tenantId)).sort({ createdAt: -1 }).lean(),
+    ]);
+    // Company Details = BusinessProfile.displayName + gstin saved (the two fields the Phase 1 New Filing form
+    // actually requires); address is supplementary and not required here to avoid over-constraining profiles
+    // that predate stricter form validation.
+    const companyDetailsDone = Boolean(profile?.displayName?.trim() && profile?.gstin);
+
+    const items = await Promise.all(filings.map(async (filing) => {
+      const bill = this.gstBillRepo ? await this.gstBillRepo.findByFiling(tenantId, filing._id) : null;
+      const match = bill && this.gstBillMatchRepo ? await this.gstBillMatchRepo.findByFiling(tenantId, filing._id) : null;
+
+      const steps = {
+        companyDetails: companyDetailsDone,
+        billCreated: Boolean(bill),
+        billUploaded: Boolean(bill?.documentIds?.length),
+        tallyMatched: match?.overallStatus === 'FULLY_MATCHED',
+        finalDocument: Boolean(bill?.finalDocumentIds?.length),
+      };
+      const order = ['companyDetails', 'billCreated', 'billUploaded', 'tallyMatched', 'finalDocument'];
+      // Sequential: progress never jumps past the first incomplete stage (spec: Tally mismatch/error keeps
+      // progress at the previous completed stage, it is never credited as 80% done).
+      let currentStepIndex = order.findIndex((k) => !steps[k]);
+      if (currentStepIndex === -1) currentStepIndex = order.length;
+      const progressPercent = currentStepIndex * 20;
+
+      let status;
+      if (!steps.companyDetails) status = 'Company Details Pending';
+      else if (!steps.billCreated) status = 'Bill Creation Pending';
+      else if (!steps.billUploaded) status = 'Bill Upload Pending';
+      else if (!match) status = 'Tally Matching Pending';
+      else if (match.overallStatus !== 'FULLY_MATCHED') status = 'Tally Matching Issue';
+      else if (!steps.finalDocument) status = 'Final Document Pending';
+      else status = 'Completed';
+
+      return {
+        filingId: String(filing._id),
+        periodKey: filing.periodKey,
+        periodLabel: filing.periodLabel ?? filing.periodKey,
+        returnType: filing.returnType,
+        companyName: profile?.displayName ?? null,
+        gstin: profile?.gstin ?? null,
+        createdAt: filing.createdAt,
+        updatedAt: filing.updatedAt,
+        steps,
+        currentStepIndex: currentStepIndex + 1, // 1..5, or 6 when every step is complete
+        progressPercent,
+        status,
+        tally: match ? {
+          totalClientBills: match.totalClientBills,
+          totalTallyBills: match.totalTallyBills,
+          matchedCount: match.matchedCount,
+          unmatchedCount: match.unmatchedCount,
+          extraTallyCount: match.extraTallyCount,
+          overallStatus: match.overallStatus,
+        } : null,
+        finalDocumentCount: bill?.finalDocumentIds?.length ?? 0,
+      };
+    }));
+
+    const completed = items.filter((i) => i.status === 'Completed').length;
+    const tallyMatched = items.filter((i) => i.steps.tallyMatched).length;
+    return {
+      summary: {
+        totalFilings: items.length, inProgress: items.length - completed, tallyMatched, completed,
+      },
+      items,
+    };
   }
 
   async get(ctx, filing) {

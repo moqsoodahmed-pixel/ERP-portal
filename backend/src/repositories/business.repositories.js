@@ -151,6 +151,33 @@ export class GSTFilingRepository extends TenantRepository {
   }
 }
 
+/** Phase 19 — GST Bill Builder. One bill per filing (unique (tenantId, filingId) index on the schema), so
+ * `findByFiling` is the load path for "create if none exists, else edit the existing one" (no transaction
+ * needed — the whole bill, including its line items, is a single embedded document). */
+export class GSTBillRepository extends TenantRepository {
+  constructor(model) { super(model, { softDelete: false }); }
+  findByFiling(tenantId, filingId) { return this.findOne(tenantId, { filingId: String(filingId) }); }
+}
+
+/** Phase 20 — GST Bill <-> Tally matching result. One row per filing (unique (tenantId, filingId) index on
+ * the schema); `upsertByFiling` is the same create-or-replace-in-place upsert pattern TallyIntegrationRepository
+ * uses for its one-per-tenant config row, so re-running matching never creates a second stale row. */
+export class GSTBillMatchRepository extends TenantRepository {
+  constructor(model) { super(model, { softDelete: false }); }
+
+  findByFiling(tenantId, filingId) { return this.findOne(tenantId, { filingId: String(filingId) }); }
+
+  async upsertByFiling(tenantId, filingId, patch, actorId) {
+    const clean = Object.fromEntries(Object.entries(patch).filter(([k]) => !['_id', 'tenantId', 'filingId', 'createdAt'].includes(k)));
+    if (actorId) clean.updatedBy = actorId;
+    return this.model.findOneAndUpdate(
+      this.scope(tenantId, { filingId: String(filingId) }),
+      { $set: clean, $setOnInsert: { tenantId: String(tenantId), filingId: String(filingId), createdBy: actorId } },
+      { upsert: true, returnDocument: 'after' },
+    ).lean();
+  }
+}
+
 export class GSTFilingIssueRepository extends TenantRepository {
   constructor(model) { super(model, { softDelete: false }); }
   listByFiling(tenantId, filingId) { return this.model.find(this.scope(tenantId, { filingId: String(filingId) })).sort({ createdAt: -1 }).lean(); }

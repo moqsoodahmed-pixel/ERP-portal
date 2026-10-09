@@ -4,7 +4,7 @@ import {
 import {
   ProductRepository, CustomerRepository, InvoiceRepository, BusinessProfileRepository,
   TallyIntegrationRepository, TallySyncRepository, GSTFilingRepository, GSTFilingIssueRepository, TallyApiKeyRepository,
-  BillIntakeRepository, TallyConnectorRepository, TallyJobRepository,
+  BillIntakeRepository, TallyConnectorRepository, TallyJobRepository, GSTBillRepository, GSTBillMatchRepository,
 } from './business.repositories.js';
 import {
   AuditRepository, RefreshTokenRepository, SecurityEventRepository, CounterRepository, IdempotencyRepository, NotificationRepository,
@@ -29,6 +29,8 @@ export function buildRepositories(m) {
     tallySyncs: new TallySyncRepository(m.TallySyncLog),
     gstFilings: new GSTFilingRepository(m.GSTFiling),
     gstFilingIssues: new GSTFilingIssueRepository(m.GSTFilingIssue),
+    gstBills: new GSTBillRepository(m.GSTBill),
+    gstBillMatches: new GSTBillMatchRepository(m.GSTBillMatch),
     tallyApiKeys: new TallyApiKeyRepository(m.TallyApiKey),
     audit: new AuditRepository(m.AuditLog),
     refreshTokens: new RefreshTokenRepository(m.RefreshToken),

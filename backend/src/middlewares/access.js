@@ -169,10 +169,15 @@ export function createAccessMiddlewares({
    * Tenant resolution for POST /gst-filings (creation). There is no existing filing/invoice to derive the
    * tenant from yet, so the body's `tenantId` is the operator's declared target — but it is NEVER trusted on
    * its own: for MASTER_ADMIN the X-Admin-Tenant-Id header is authoritative and overwrites the body value;
-   * for GST_VENDOR the body tenantId must correspond to an ACTIVE assignment (same chain as everywhere else).
+   * for GST_VENDOR the body tenantId must correspond to an ACTIVE assignment (same chain as everywhere else);
+   * for a tenant role (CLIENT_ADMIN/CLIENT_USER, Phase 19) the caller's own tenant is always used, exactly
+   * like resolveTenant — any client-supplied tenantId is overwritten, never merely checked.
    */
   const resolveTenantForFilingCreate = asyncHandler(async (req, res, next) => {
-    if (req.auth.role === ROLES.MASTER_ADMIN) {
+    if (isTenantRole(req.auth.role)) {
+      req.tenantId = req.auth.tenantId;
+      req.body.tenantId = req.auth.tenantId;
+    } else if (req.auth.role === ROLES.MASTER_ADMIN) {
       const header = req.get(HEADERS.ADMIN_TENANT);
       if (!header || !isObjectId(header)) throw new ValidationError(`${HEADERS.ADMIN_TENANT} header is required for tenant-scoped administrative access`);
       const tenant = await tenantRepo.findById(header);

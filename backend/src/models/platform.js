@@ -122,11 +122,14 @@ const fileMetadataSchema = new Schema({
   storageKey: { type: String, required: true },
   checksum: { type: String, required: true },
   // Phase 15 adds 'BILL_DOCUMENT' for client-uploaded bill/supporting documents (reuses this same Phase 5
-  // storage + metadata architecture rather than a second file-storage system).
-  purpose: { type: String, enum: ['INVOICE_PDF', 'GST_DOCUMENT', 'LOGO', 'BILL_DOCUMENT', 'OTHER'], default: 'OTHER' },
+  // storage + metadata architecture rather than a second file-storage system). Phase 19 adds
+  // 'GST_BILL_DOCUMENT' for the GST Bill Builder's "Upload Bill" attachment. Phase 21 adds
+  // 'VENDOR_FINAL_DOCUMENT' for the GST_VENDOR's final processed document — a DIFFERENT document, by a
+  // different author, from the client's own 'GST_BILL_DOCUMENT' (see GSTBill.finalDocumentIds doc comment).
+  purpose: { type: String, enum: ['INVOICE_PDF', 'GST_DOCUMENT', 'LOGO', 'BILL_DOCUMENT', 'GST_BILL_DOCUMENT', 'VENDOR_FINAL_DOCUMENT', 'OTHER'], default: 'OTHER' },
   scanStatus: { type: String, enum: ['PENDING', 'CLEAN', 'INFECTED'], default: 'PENDING' },
-  /** Optional owning-entity link (Phase 15: BILL_INTAKE). Unset for file purposes that don't need it (e.g. LOGO). */
-  entityType: { type: String, enum: ['BILL_INTAKE'], default: undefined },
+  /** Optional owning-entity link (Phase 15: BILL_INTAKE; Phase 19: GST_BILL). Unset for file purposes that don't need it (e.g. LOGO). */
+  entityType: { type: String, enum: ['BILL_INTAKE', 'GST_BILL'], default: undefined },
   entityId: { type: ObjectId, default: undefined },
 }, { timestamps: true });
 tenantPlugin(fileMetadataSchema);

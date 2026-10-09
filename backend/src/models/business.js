@@ -4,6 +4,7 @@ import {
   FILING_STATUS, FILING_RETURN_TYPE, FILING_SUBMISSION_SOURCE, FILING_MILESTONE_STATUS,
   FILING_ISSUE_TYPE, FILING_ISSUE_SEVERITY, FILING_ISSUE_STATUS, TALLY_API_KEY_STATUS,
   BILL_STATUS, BILL_TALLY_STATUS, TALLY_CONNECTOR_STATUS, TALLY_JOB_STATUS, TALLY_JOB_TYPE,
+  GST_BILL_MATCH_STATUS, GST_BILL_OVERALL_MATCH_STATUS,
 } from '../constants/statuses.js';
 import { TALLY_API_SCOPES, TALLY_CONNECTOR_SCOPES } from '../integrations/tally/tally.constants.js';
 import {
@@ -310,6 +311,75 @@ gstFilingIssueSchema.index({ severity: 1, status: 1 });
 gstFilingIssueSchema.index({ invoiceId: 1 });
 
 /**
+ * Phase 19 — GST Bill Builder. A simple internal GST sales bill tied 1:1 to a GSTFiling — deliberately NOT
+ * the official Invoice model above (no Customer, no per-line tax split): just serial/productName/rate lines
+ * with a single flat GST rate applied to the whole bill. `documentIds` reuses the Phase 5 FileMetadata +
+ * StorageService architecture, exactly like BillIntake.documentIds below. The unique (tenantId, filingId)
+ * index is what makes "create if none exists, else load/update the existing one" safe without a transaction.
+ */
+const gstBillItemSchema = new Schema({
+  serialNo: { type: Number, required: true, min: 1 },
+  productName: { type: String, required: true, trim: true, maxlength: 200 },
+  rate: { type: Money, required: true },
+}, { _id: false });
+
+const gstBillSchema = new Schema({
+  filingId: { type: ObjectId, ref: 'GSTFiling', required: true },
+  items: { type: [gstBillItemSchema], default: [] },
+  gstRate: { type: Number, default: 18, min: 0, max: 100 },
+  subtotal: { type: Money, default: 0 },
+  gstAmount: { type: Money, default: 0 },
+  grandTotal: { type: Money, default: 0 },
+  // Client's own uploaded bill document(s) — see Phase 19 doc comment above.
+  documentIds: { type: [ObjectId], ref: 'FileMetadata', default: [] },
+  // Phase 21 — the GST_VENDOR's final processed document for this same bill/filing. Deliberately a SEPARATE
+  // array (never merged with documentIds above): the client's uploaded bill and the vendor's final document
+  // are different documents with different authors/purposes (FileMetadata.purpose distinguishes them too:
+  // 'GST_BILL_DOCUMENT' vs 'VENDOR_FINAL_DOCUMENT'). A vendor upload only ever appends here — it never
+  // touches `items`/`subtotal`/`gstAmount`/`grandTotal`/`documentIds` above.
+  finalDocumentIds: { type: [ObjectId], ref: 'FileMetadata', default: [] },
+}, { timestamps: true });
+tenantPlugin(gstBillSchema); actorPlugin(gstBillSchema);
+gstBillSchema.index({ tenantId: 1, filingId: 1 }, { unique: true });
+
+/**
+ * Phase 20 — GST Bill <-> Tally bill-by-bill matching result. One document per (tenantId, filingId) — a
+ * re-run REPLACES this same row in place (unique index below is what makes that upsert safe, same pattern
+ * as TallyIntegration's one-per-tenant upsert), never growing a history of stale runs. The GSTBill itself
+ * (above) is NEVER modified by matching — this is a read-only comparison result living in its own
+ * collection, exactly the "GSTFiling -> Reconciliation -> Results[]" shape the product spec describes.
+ *
+ * `results[]` has one entry per GSTBill.items[] line (there is no separate per-bill sub-document in the
+ * Phase 19 GSTBill model — each line IS "one client bill" for matching purposes, identified by its
+ * serialNo/productName/rate; see gstBillMatching.service.js for why no stronger identifier exists today).
+ */
+const gstBillMatchResultSchema = new Schema({
+  serialNo: { type: Number, required: true },
+  productName: { type: String, required: true },
+  rate: { type: Money, required: true },
+  tallyVoucherNumber: { type: String, default: null },
+  tallyAmount: { type: Money, default: null },
+  status: { type: String, enum: enumOf(GST_BILL_MATCH_STATUS), required: true },
+  reason: { type: String, maxlength: 300 },
+}, { _id: false });
+
+const gstBillMatchSchema = new Schema({
+  filingId: { type: ObjectId, ref: 'GSTFiling', required: true },
+  billId: { type: ObjectId, ref: 'GSTBill', required: true },
+  totalClientBills: { type: Number, required: true },
+  totalTallyBills: { type: Number, required: true },
+  matchedCount: { type: Number, required: true },
+  unmatchedCount: { type: Number, required: true },
+  extraTallyCount: { type: Number, required: true },
+  overallStatus: { type: String, enum: enumOf(GST_BILL_OVERALL_MATCH_STATUS), required: true },
+  results: { type: [gstBillMatchResultSchema], default: [] },
+  errorMessage: { type: String, maxlength: 500 },
+  ranAt: { type: Date, default: Date.now },
+}, { timestamps: true });
+tenantPlugin(gstBillMatchSchema); actorPlugin(gstBillMatchSchema);
+gstBillMatchSchema.index({ tenantId: 1, filingId: 1 }, { unique: true });
+
+/**
  * Phase 13 — Tally Public API key (Tally/TDL -> ERP direction; opposite of TallyIntegration above, which
  * is ERP -> Tally). The raw key is NEVER stored: only a keyed-HMAC hash (see security/apiKey.js, same
  * non-reversible pattern as RefreshToken.tokenHash) plus a short, non-secret prefix for human identification
@@ -464,6 +534,8 @@ export const businessModels = {
   TallySyncLog: model('TallySyncLog', tallySyncLogSchema),
   GSTFiling: model('GSTFiling', gstFilingSchema),
   GSTFilingIssue: model('GSTFilingIssue', gstFilingIssueSchema),
+  GSTBill: model('GSTBill', gstBillSchema),
+  GSTBillMatch: model('GSTBillMatch', gstBillMatchSchema),
   TallyApiKey: model('TallyApiKey', tallyApiKeySchema),
   BillIntake: model('BillIntake', billIntakeSchema),
   TallyConnector: model('TallyConnector', tallyConnectorSchema),

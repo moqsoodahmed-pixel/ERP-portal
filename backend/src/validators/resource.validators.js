@@ -30,6 +30,18 @@ export const businessProfileCreate = z.object({
 export const businessProfileUpdate = businessProfileCreate.partial().strict()
   .refine((v) => Object.keys(v).length > 0, 'At least one field is required');
 
+const LOGO_BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
+const ALLOWED_LOGO_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+/** 2MB per logo, base64-encoded in JSON — same no-multipart-stack constraint as billIntake.validators.js. */
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+export const MAX_LOGO_FILE_BYTES = MAX_LOGO_BYTES;
+export const ALLOWED_LOGO_MIME_TYPES = ALLOWED_LOGO_MIME;
+export const businessProfileLogoUpload = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.enum(ALLOWED_LOGO_MIME),
+  contentBase64: z.string().min(1).max(Math.ceil((MAX_LOGO_BYTES * 4) / 3) + 1024).regex(LOGO_BASE64_RE, 'Invalid base64 content'),
+}).strict();
+
 export const customerCreate = z.object({
   name: z.string().trim().min(1).max(200),
   businessName: z.string().max(200).optional(),
