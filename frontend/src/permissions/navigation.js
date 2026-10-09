@@ -25,8 +25,12 @@ export const NAVIGATION = {
       { to: '/client/products', label: 'Products & services', permission: 'products.view' },
       { to: '/client/customers', label: 'Customers', permission: 'customers.view' },
       { to: '/client/invoices', label: 'Invoices', permission: 'invoices.view' },
+      // Phase 22: "GST filing" is the single, consolidated client entry point for the whole GST workflow
+      // (New Filing, Bill Builder, Tally matching, final document, progress tracking) — the separate
+      // "GST filing workflow" (/client/gst-filings list page) nav entry is intentionally removed to avoid
+      // exposing two client-facing items for the same workflow; the route itself is untouched and still
+      // used internally (e.g. "View Filing"/"GST Billing Dashboard" links from the GST Filing page).
       { to: '/client/gst', label: 'GST filing', permission: 'gst.view' },
-      { to: '/client/gst-filings', label: 'GST filing workflow', permission: 'gst_filings.view' },
       { to: '/client/bills', label: 'My bills', permission: 'bills.view' },
       { to: '/client/tally', label: 'Tally sync', permission: 'tally.view' },
       { to: '/client/tally-connectors', label: 'Tally connectors', permission: 'tally.connector.view' },
@@ -41,6 +45,7 @@ export const NAVIGATION = {
       { to: '/vendor/dashboard', label: 'Dashboard', permission: 'dashboard.view' },
       { to: '/vendor/clients', label: 'Assigned clients', permission: 'gst.view' },
       { to: '/vendor/filings', label: 'Filings', permission: 'gst_filings.view' },
+      { to: '/vendor/gst-bills', label: 'Client GST bills', permission: 'gst_bills.view' },
       { to: '/vendor/bills', label: 'Client bills', permission: 'bills.view' },
       { to: '/vendor/tally-queue', label: 'Tally queue', permission: 'tally_queue.view' },
       { to: '/vendor/reports', label: 'Reports', permission: 'reports.view' },

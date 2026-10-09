@@ -1,0 +1,130 @@
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { api } from '../../services/apiClient.js';
+import PageHeader from '../../components/PageHeader.jsx';
+import { LoadingState, ErrorState } from '../../components/states.jsx';
+import { formatDateTime } from '../../utils/format.js';
+
+/** Precise, non-government-filing wording only (spec step 26) — this phase never claims a GST return was
+ * filed/submitted, only that the vendor's internal processing/document is or isn't available yet. */
+const PROCESSING_STATUS = {
+  NONE: { label: 'Awaiting Vendor Processing', tone: 'neutral' },
+  IN_PROGRESS: { label: 'Vendor Processing In Progress', tone: 'info' },
+  COMPLETED: { label: 'Vendor Processing Completed', tone: 'ok' },
+};
+
+export default function GstBillingDashboardPage() {
+  const { id } = useParams();
+  const [state, setState] = useState({ status: 'loading', data: null, error: null });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [profileRes, filingRes, finalDocsRes, matchRes] = await Promise.all([
+          api.get('/business-profile').catch((err) => (err.status === 404 ? { data: null } : Promise.reject(err))),
+          api.get(`/gst-filings/${id}`),
+          api.get(`/gst-filings/${id}/final-documents`),
+          api.get(`/gst-filings/${id}/tally-matching`).catch((err) => (err.status === 404 ? { data: null } : Promise.reject(err))),
+        ]);
+        setState({
+          status: 'ready',
+          data: {
+            profile: profileRes.data, filing: filingRes.data, finalDocuments: finalDocsRes.data.items, match: matchRes.data,
+          },
+          error: null,
+        });
+      } catch (err) {
+        setState({ status: 'error', data: null, error: err });
+      }
+    })();
+  }, [id]);
+
+  if (state.status === 'loading') return <LoadingState label="Loading GST billing information…" />;
+  if (state.status === 'error') {
+    return (
+      <>
+        <PageHeader title="GST Billing" />
+        <ErrorState error={{ ...state.error, message: state.error?.message ?? 'Unable to load GST billing information.' }} />
+      </>
+    );
+  }
+
+  const {
+    profile, filing, finalDocuments, match,
+  } = state.data;
+  const processing = !match ? PROCESSING_STATUS.NONE : (match.overallStatus === 'FULLY_MATCHED' ? PROCESSING_STATUS.COMPLETED : PROCESSING_STATUS.IN_PROGRESS);
+
+  return (
+    <>
+      <PageHeader title="GST Billing" subtitle="Vendor-processed GST documents for this filing." />
+
+      <section className="card">
+        <dl className="definition-list">
+          <div><dt>Company</dt><dd>{profile?.displayName ?? 'Not set'}</dd></div>
+          <div><dt>GSTIN</dt><dd className="mono">{profile?.gstin ?? '—'}</dd></div>
+          <div><dt>Filing</dt><dd>{filing.periodLabel ?? filing.periodKey} ({filing.returnType?.replace('_', ' ')})</dd></div>
+          <div><dt>Status</dt><dd><span className={`badge badge--${processing.tone}`}>{processing.label}</span></dd></div>
+        </dl>
+      </section>
+
+      <section className="card">
+        <h2>Vendor Final Documents</h2>
+        {finalDocuments.length === 0 && (
+          <p className="muted">
+            No final document available yet.<br />
+            Your GST vendor will upload the final document after completing the processing.
+          </p>
+        )}
+        {finalDocuments.map((d) => (
+          <div key={d.id} className="card placeholder" style={{ marginBottom: '.6rem' }}>
+            <strong style={{ wordBreak: 'break-word' }}>{d.fileName}</strong>
+            <p className="muted">Uploaded by GST Vendor · {formatDateTime(d.uploadedAt)}</p>
+            <div className="toolbar toolbar--tight">
+              <ViewDownloadButtons filingId={id} docId={d.id} fileName={d.fileName} />
+            </div>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function ViewDownloadButtons({ filingId, docId, fileName }) {
+  const [notice, setNotice] = useState(null);
+
+  const fetchBlob = async () => {
+    const { blob } = await api.getBlob(`/gst-filings/${filingId}/final-documents/${docId}`);
+    return blob;
+  };
+
+  const view = async () => {
+    try {
+      const blob = await fetchBlob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setNotice(err.message ?? `Could not open ${fileName}`);
+    }
+  };
+
+  const download = async () => {
+    try {
+      const blob = await fetchBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setNotice(err.message ?? `Could not download ${fileName}`);
+    }
+  };
+
+  return (
+    <>
+      <button type="button" className="btn btn--small" onClick={view}>View Document</button>
+      <button type="button" className="btn btn--small" onClick={download}>Download</button>
+      {notice && <span className="field__error">{notice}</span>}
+    </>
+  );
+}

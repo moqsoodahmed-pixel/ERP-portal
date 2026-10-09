@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { api, adminTenantHeaders } from '../../services/apiClient.js';
 import PageHeader from '../../components/PageHeader.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -197,6 +197,7 @@ function IssuesPanel({ filingId, issues, canCreate, canResolve, onChanged, reqOp
 export default function FilingDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   // Master Admin only: the admin-tenant-context header, carried through from the list page's link
   // (never trusted on the server as sole authority — resolveTenantForFiling re-derives the tenant from the
@@ -237,6 +238,14 @@ export default function FilingDetailPage() {
         actions={<StatusBadge status={filing.status} />}
       />
       {notice && <p className="state" role="status">{notice}</p>}
+      {can(user, 'gst_bills.view') && location.pathname.startsWith('/client/') && (
+        <section className="card">
+          <div className="toolbar toolbar--tight">
+            <Link to={`${location.pathname}/bill`} className="btn btn--primary">Open Bill Builder</Link>
+            <Link to={`${location.pathname}/billing`} className="btn">Open GST Billing Dashboard</Link>
+          </div>
+        </section>
+      )}
       {next && nextAllowed && (
         <section className="card">
           <button type="button" className="btn btn--primary" disabled={busy} onClick={runTransition}>{next.label}</button>

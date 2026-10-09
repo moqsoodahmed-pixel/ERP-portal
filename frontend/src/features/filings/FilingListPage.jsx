@@ -4,22 +4,32 @@ import PageHeader from '../../components/PageHeader.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import { ErrorState, LoadingState, EmptyState } from '../../components/states.jsx';
 import { formatDate } from '../../utils/format.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { can } from '../../permissions/permissions.js';
 import { useFetch, RETURN_TYPES, FILING_STATUSES } from './filingsApi.js';
 
 /**
  * Role-agnostic GST filing WORKFLOW TRACKER list (ERP-internal — not a government portal view).
  * - Master Admin ("/master/filings"): cross-tenant, all filters available.
  * - Vendor ("/vendor/filings"): server already restricts to the vendor's own ACTIVE assignments.
- * - Client ("/client/gst-filings"): server already restricts to the caller's own tenant; read-only.
+ * - Client ("/client/gst-filings"): server already restricts to the caller's own tenant; the client can
+ *   additionally start their own new filing here (Phase 19) when `showNewFilingButton` is set and they
+ *   hold `gst_filings.create` — the server re-checks the permission regardless of what this prop renders.
  */
-export default function FilingListPage({ basePath, title, subtitle, showClientColumn = false }) {
+export default function FilingListPage({ basePath, title, subtitle, showClientColumn = false, showNewFilingButton = false }) {
+  const { user } = useAuth();
   const [filters, setFilters] = useState({ period: '', returnType: '', status: '' });
   const query = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([, v]) => v))).toString();
   const { status, data, error, reload } = useFetch(`/gst-filings${query ? `?${query}` : ''}`, [query]);
+  const canCreate = showNewFilingButton && can(user, 'gst_filings.create');
 
   return (
     <>
-      <PageHeader title={title} subtitle={subtitle} />
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        actions={canCreate && <Link to={`${basePath}/new`} className="btn btn--primary">+ New Filing</Link>}
+      />
       <section className="card">
         <div className="toolbar">
           <label className="field field--inline">

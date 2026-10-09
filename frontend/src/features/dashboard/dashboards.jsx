@@ -110,8 +110,8 @@ export function ClientDashboard() {
   const { status, data, error, reload } = useFetch(`/dashboard${toQuery(range)}`);
   const links = [
     ['/client/products', 'Products & services', 'products.view'], ['/client/customers', 'Customers', 'customers.view'],
-    ['/client/invoices', 'Invoices', 'invoices.view'], ['/client/gst', 'GST filing progress', 'gst.view'],
-    ['/client/gst-filings', 'GST filing workflow tracker', 'gst_filings.view'], ['/client/tally', 'Tally sync status', 'tally.view'],
+    ['/client/invoices', 'Invoices', 'invoices.view'], ['/client/gst', 'GST filing', 'gst.view'],
+    ['/client/tally', 'Tally sync status', 'tally.view'],
     ['/client/reports', 'Reports', 'reports.view'],
   ].filter(([, , p]) => canAny(user, [p]));
   return (

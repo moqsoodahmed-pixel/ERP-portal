@@ -106,6 +106,69 @@ input, select { font: inherit; padding: .5rem .65rem; border: 1px solid #aab8af;
 .summary-grid dt { font-size: .78rem; color: var(--muted); }
 .summary-grid dd { margin: 0; font-weight: 600; }
 
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.2rem; }
+.form-grid .field--full { grid-column: 1 / -1; }
+.logo-upload { display: grid; gap: .5rem; justify-items: start; margin-bottom: .9rem; }
+.logo-upload__preview { width: 140px; height: 140px; border: 1px dashed var(--line); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--paper); color: var(--muted); font-size: .8rem; text-align: center; }
+.logo-upload__preview img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Phase 22.1 — GST Filing workspace: process overview stepper, summary icons, compact filing cards */
+.stat__icon { font-size: 1.25rem; line-height: 1; margin-bottom: .15rem; }
+
+.gst-process { display: flex; align-items: flex-start; gap: .4rem; margin-top: .4rem; }
+.gst-process__step { flex: 1; min-width: 0; display: grid; justify-items: center; text-align: center; gap: .3rem; position: relative; }
+.gst-process__step:not(:last-child)::after {
+  content: ''; position: absolute; top: 19px; left: 50%; width: 100%; height: 2px; background: var(--line); z-index: 0;
+}
+.gst-process__circle {
+  position: relative; z-index: 1; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--neutral-bg); color: var(--neutral); font-weight: 700; border: 2px solid var(--line); font-size: .95rem;
+}
+.gst-process__label { font-weight: 600; font-size: .85rem; }
+.gst-process__desc { font-size: .76rem; color: var(--muted); max-width: 130px; }
+
+.gst-filing-header { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; margin-bottom: .7rem; }
+.gst-filing-company { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+.gst-filing-avatar {
+  flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; background: var(--neutral-bg); color: var(--neutral);
+  display: grid; place-items: center; font-weight: 700; overflow: hidden; border: 1px solid var(--line);
+}
+.gst-filing-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.gst-filing-company h2 { margin: 0; }
+.gst-filing-gstin { font-size: .82rem; color: var(--muted); }
+.gst-filing-gstin.is-missing { color: var(--warn); }
+
+.gst-filing-info-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; padding: .65rem 0; margin-bottom: .7rem;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.gst-filing-info-grid dt { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; margin: 0; }
+.gst-filing-info-grid dd { margin: .15rem 0 0; font-weight: 600; }
+
+.gst-progress-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .3rem; }
+.gst-progress-row strong { font-size: 1.1rem; }
+.progress-bar { height: 8px; background: var(--neutral-bg); border-radius: 999px; overflow: hidden; margin-bottom: .8rem; }
+.progress-bar__fill { height: 100%; background: var(--primary); border-radius: 999px; transition: width .2s ease; }
+.progress-bar__fill.is-complete { background: var(--ok); }
+
+.gst-steps { display: flex; margin-bottom: .8rem; }
+.gst-steps__step { flex: 1; display: grid; justify-items: center; gap: .25rem; position: relative; font-size: .72rem; }
+.gst-steps__step:not(:last-child)::after {
+  content: ''; position: absolute; top: 11px; left: 50%; width: 100%; height: 2px; background: var(--line); z-index: 0;
+}
+.gst-steps__dot {
+  position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: .7rem; font-weight: 700; background: var(--neutral-bg); color: var(--neutral); border: 2px solid var(--line);
+}
+.gst-steps__step.is-done .gst-steps__dot { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+.gst-steps__step.is-done:not(:last-child)::after { background: var(--ok); }
+.gst-steps__step.is-current .gst-steps__dot { background: var(--info-bg); color: var(--info); border-color: var(--info); }
+.gst-steps__step.is-issue .gst-steps__dot { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.gst-steps__label { color: var(--muted); }
+
+.gst-detail-row { display: flex; justify-content: space-between; align-items: center; gap: .6rem; padding: .35rem 0; font-size: .88rem; }
+.gst-detail-row + .gst-detail-row { border-top: 1px solid var(--line); }
+
 @media (max-width: 820px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: fixed; inset: 0 auto 0 0; width: 260px; transform: translateX(-100%); transition: transform .2s; z-index: 10; }
@@ -113,5 +176,12 @@ input, select { font: inherit; padding: .5rem .65rem; border: 1px solid #aab8af;
   .topbar__menu { display: inline-block; }
   .topbar { padding: .6rem 1rem; }
   .content { padding: 1rem; }
+  .form-grid { grid-template-columns: 1fr; }
+  .gst-process { flex-direction: column; align-items: stretch; }
+  .gst-process__step { grid-template-columns: auto 1fr; justify-items: start; text-align: left; display: grid; column-gap: .6rem; }
+  .gst-process__step:not(:last-child)::after { display: none; }
+  .gst-process__desc { max-width: none; }
+  .gst-filing-info-grid { grid-template-columns: 1fr; }
 }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } .sidebar { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } .sidebar { transition: none; } }

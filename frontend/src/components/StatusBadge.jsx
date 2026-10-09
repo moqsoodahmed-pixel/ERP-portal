@@ -8,6 +8,9 @@ const TONES = {
   NOT_STARTED: 'neutral', IN_PROGRESS: 'info', READY_FOR_REVIEW: 'warn', SUBMITTED: 'info',
   OPEN: 'bad', CLOSED: 'neutral',
   LOW: 'neutral', MEDIUM: 'warn', HIGH: 'bad', CRITICAL: 'bad',
+  // Phase 20: GST Bill <-> Tally matching (per-bill + overall statuses).
+  MATCHED: 'ok', FULLY_MATCHED: 'ok', MISMATCH: 'bad', NOT_FOUND: 'warn', DUPLICATE: 'warn',
+  PARTIAL_MATCH: 'warn', NOT_MATCHED: 'bad', TALLY_ERROR: 'bad', ERROR: 'bad',
 };
 const label = (s) => String(s).replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 

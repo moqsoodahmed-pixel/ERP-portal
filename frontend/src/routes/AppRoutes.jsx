@@ -22,10 +22,14 @@ import TallyPage from '../features/tally/TallyPage.jsx';
 import AuditLogsPage from '../features/audit/AuditLogsPage.jsx';
 import {
   VendorClientsPage, VendorClientDetailPage, VendorInvoiceDetailPage,
-  VendorsAdminPage, VendorDetailPage, CreateVendorPage, ClientGstVendorPage,
+  VendorsAdminPage, VendorDetailPage, CreateVendorPage, ClientGstVendorPage, VendorGstBillsPage,
 } from '../features/vendors/VendorsPages.jsx';
 import FilingListPage from '../features/filings/FilingListPage.jsx';
 import FilingDetailPage from '../features/filings/FilingDetailPage.jsx';
+import NewFilingPage from '../features/filings/NewFilingPage.jsx';
+import BillBuilderPage from '../features/filings/BillBuilderPage.jsx';
+import TallyMatchingPage from '../features/filings/TallyMatchingPage.jsx';
+import GstBillingDashboardPage from '../features/filings/GstBillingDashboardPage.jsx';
 import ReportsPage from '../features/reports/ReportsPage.jsx';
 import BillListPage from '../features/bills/BillListPage.jsx';
 import BillDetailPage from '../features/bills/BillDetailPage.jsx';
@@ -78,7 +82,10 @@ export default function AppRoutes() {
         <Route path="invoices/:id/edit" element={guarded('invoices.update', <InvoiceFormPage />)} />
         <Route path="invoices/:id" element={guarded('invoices.view', <InvoiceDetailPage />)} />
         <Route path="gst" element={guarded('gst.view', <GstPage />)} />
-        <Route path="gst-filings" element={guarded('gst_filings.view', <FilingListPage basePath="/client/gst-filings" title="GST filing workflow" subtitle="Read-only progress tracker for your assigned GST vendor's filing work." />)} />
+        <Route path="gst-filings" element={guarded('gst_filings.view', <FilingListPage basePath="/client/gst-filings" title="GST filing workflow" subtitle="Track your GST filings, from new filing to filed, alongside your assigned GST vendor's work." showNewFilingButton />)} />
+        <Route path="gst-filings/new" element={guarded('gst_filings.create', <NewFilingPage />)} />
+        <Route path="gst-filings/:id/bill" element={guarded('gst_bills.view', <BillBuilderPage />)} />
+        <Route path="gst-filings/:id/billing" element={guarded('gst_bills.view', <GstBillingDashboardPage />)} />
         <Route path="gst-filings/:id" element={guarded('gst_filings.view', <FilingDetailPage />)} />
         <Route path="tally" element={guarded('tally.view', <TallyPage />)} />
         <Route path="gst-vendor" element={guarded('business.view', <ClientGstVendorPage />)} />
@@ -93,6 +100,8 @@ export default function AppRoutes() {
         <Route path="dashboard" element={<VendorDashboard />} />
         <Route path="clients" element={guarded('gst.view', <VendorClientsPage />)} />
         <Route path="clients/:tenantId" element={guarded('invoices.view', <VendorClientDetailPage />)} />
+        <Route path="gst-bills" element={guarded('gst_bills.view', <VendorGstBillsPage />)} />
+        <Route path="gst-filings/:id/tally-matching" element={guarded('gst_bills.view', <TallyMatchingPage />)} />
         <Route path="invoices/:id" element={guarded('invoices.view', <VendorInvoiceDetailPage />)} />
         <Route path="filings" element={guarded('gst_filings.view', <FilingListPage basePath="/vendor/filings" title="GST filings" subtitle="Filing workflow progress for your assigned clients only." />)} />
         <Route path="filings/:id" element={guarded('gst_filings.view', <FilingDetailPage />)} />
