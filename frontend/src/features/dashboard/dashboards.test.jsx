@@ -15,21 +15,24 @@ const withAuth = (ui, user) => render(
 
 describe('Phase 9 dashboards', () => {
   it('client dashboard renders server-computed totals and shows payments as not available (never zero)', async () => {
-    api.get.mockResolvedValue({
-      data: {
-        range: { preset: 'this_month', from: '2026-04-01T00:00:00Z', to: '2026-04-30T23:59:59Z' },
-        invoices: {
-          available: true, byStatus: { DRAFT: 1, ISSUED: 3, CANCELLED: 1 },
-          issued: { count: 3, taxableAmount: '900.00', totalGst: '90.00', grandTotal: '990.00' },
-          payments: { available: false, reason: 'no payment-recording workflow is implemented', paidAmount: null, outstandingAmount: null },
+    api.get.mockImplementation((path) => {
+      if (path.startsWith('/invoices')) return Promise.resolve({ data: { items: [] } });
+      return Promise.resolve({
+        data: {
+          range: { preset: 'this_month', from: '2026-04-01T00:00:00Z', to: '2026-04-30T23:59:59Z' },
+          invoices: {
+            available: true, byStatus: { DRAFT: 1, ISSUED: 3, CANCELLED: 1 },
+            issued: { count: 3, taxableAmount: '900.00', totalGst: '90.00', cgst: '45.00', sgst: '45.00', igst: '0.00', grandTotal: '990.00' },
+            payments: { available: false, reason: 'no payment-recording workflow is implemented', paidAmount: null, outstandingAmount: null },
+          },
+          customers: { available: true, active: 4 }, products: { available: true, active: 2 },
+          tally: { available: false, reason: 'PERMISSION_REQUIRED', permission: 'tally.view' },
+          gstFilings: { available: false, reason: 'PERMISSION_REQUIRED' },
         },
-        customers: { available: true, active: 4 }, products: { available: true, active: 2 },
-        tally: { available: false, reason: 'PERMISSION_REQUIRED', permission: 'tally.view' },
-        gstFilings: { available: false, reason: 'PERMISSION_REQUIRED' },
-      },
+      });
     });
     withAuth(<ClientDashboard />, { name: 'Asha', role: 'CLIENT_USER', permissions: ['invoices.view'] });
-    expect(await screen.findByText('₹990.00')).toBeInTheDocument();
+    expect(await screen.findAllByText('₹990.00')).not.toHaveLength(0);
     expect(api.get).toHaveBeenCalledWith('/dashboard?range=this_month');
     expect(screen.getByText(/Payments received \/ outstanding: not available/)).toBeInTheDocument();
     expect(screen.queryByText(/Tally synced/)).toBeNull();

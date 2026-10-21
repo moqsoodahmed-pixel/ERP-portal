@@ -1,11 +1,6 @@
-export default function PageHeader({ title, subtitle, actions }) {
-  return (
-    <header className="page-header">
-      <div>
-        <h1>{title}</h1>
-        {subtitle && <p className="muted">{subtitle}</p>}
-      </div>
-      {actions && <div className="page-header__actions">{actions}</div>}
-    </header>
-  );
+import React from 'react';
+import { PageHeader as LDSPageHeader } from '../design-system/index.js';
+
+export default function PageHeader(props) {
+  return <LDSPageHeader {...props} />;
 }

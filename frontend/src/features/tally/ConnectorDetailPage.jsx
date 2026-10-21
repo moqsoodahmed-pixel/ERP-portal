@@ -8,6 +8,13 @@ import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
 import { useFetch, deriveConnectorDisplayStatus } from './connectorsApi.js';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardBody,
+  Button,
+} from '../../design-system/index.js';
 
 /** Phase 16.1 — single connector detail view, including last-error and last-sync diagnostics (spec Step 20/21). */
 export default function ConnectorDetailPage() {
@@ -43,45 +50,79 @@ export default function ConnectorDetailPage() {
   const display = deriveConnectorDisplayStatus(c);
 
   return (
-    <>
-      <PageHeader title={c.name} subtitle={`Connector ${c.id}`} actions={<span className={`badge badge--${display.tone}`}>{display.label}</span>} />
+    <div className="page-container" style={{ display: 'grid', gap: '1.5rem' }}>
+      <PageHeader
+        title={c.name}
+        subtitle={`Connector ${c.id}`}
+        actions={<span className={`badge badge--${display.tone}`}>{display.label}</span>}
+      />
 
       {revealed && (
-        <section className="card state" role="alert">
-          <p><strong>New secret</strong> — copy it now. It cannot be retrieved again.</p>
-          <code style={{ wordBreak: 'break-all', userSelect: 'all' }}>{revealed}</code>
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => setRevealed(null)}>I&rsquo;ve stored it securely</button>
-          </div>
-        </section>
+        <Card className="state" role="alert" style={{ background: 'var(--brand-surface)', borderColor: 'var(--brand-border)' }}>
+          <CardBody>
+            <p style={{ margin: '0 0 0.5rem', color: 'var(--brand-dark)' }}>
+              <strong>New secret</strong> — copy it now. It cannot be retrieved again.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <code style={{ wordBreak: 'break-all', userSelect: 'all', background: '#FFFFFF', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', flex: 1, minWidth: '240px' }}>
+                {revealed}
+              </code>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="btn btn--small"
+                onClick={() => navigator.clipboard?.writeText(revealed).catch(() => {})}
+              >
+                Copy
+              </Button>
+            </div>
+            <div>
+              <Button type="button" variant="primary" size="sm" className="btn" onClick={() => setRevealed(null)}>
+                I&rsquo;ve stored it securely
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       )}
 
-      {actionError && <section className="card state state--error" role="alert">{actionError}</section>}
+      {actionError && <p className="state state--error" role="alert">{actionError}</p>}
 
-      <section className="card">
-        <dl className="detail-grid">
-          <dt>Secret prefix</dt><dd><code>{c.secretPrefix}…</code></dd>
-          <dt>Version</dt><dd>{c.version ?? '—'}</dd>
-          <dt>Scopes</dt><dd>{(c.scopes ?? []).join(', ') || '—'}</dd>
-          <dt>Tally company</dt><dd>{c.tallyCompanyName ?? '—'}</dd>
-          <dt>Last heartbeat</dt><dd>{c.lastHeartbeatAt ? formatDateTime(c.lastHeartbeatAt) : 'Never'}</dd>
-          <dt>Last poll</dt><dd>{c.lastPollAt ? formatDateTime(c.lastPollAt) : 'Never'}</dd>
-          <dt>Last successful sync</dt><dd>{c.lastSuccessfulSyncAt ? formatDateTime(c.lastSuccessfulSyncAt) : 'Never'}</dd>
-          <dt>Tally available (last heartbeat)</dt><dd>{c.lastTallyAvailable === null ? '—' : (c.lastTallyAvailable ? 'Yes' : 'No')}</dd>
-          <dt>Last error</dt><dd>{c.lastErrorCode ? `${c.lastErrorCode} — ${c.lastErrorMessage ?? ''}` : '—'}</dd>
-          <dt>Created</dt><dd>{formatDateTime(c.createdAt)}</dd>
-          <dt>Updated</dt><dd>{formatDateTime(c.updatedAt)}</dd>
-          {c.revokedAt && (<><dt>Revoked</dt><dd>{formatDateTime(c.revokedAt)}</dd></>)}
-        </dl>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Connector details</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <dl className="detail-grid">
+            <dt>Secret prefix</dt><dd><code>{c.secretPrefix}…</code></dd>
+            <dt>Version</dt><dd>{c.version ?? '—'}</dd>
+            <dt>Scopes</dt><dd>{(c.scopes ?? []).join(', ') || '—'}</dd>
+            <dt>Tally company</dt><dd>{c.tallyCompanyName ?? '—'}</dd>
+            <dt>Last heartbeat</dt><dd>{c.lastHeartbeatAt ? formatDateTime(c.lastHeartbeatAt) : 'Never'}</dd>
+            <dt>Last poll</dt><dd>{c.lastPollAt ? formatDateTime(c.lastPollAt) : 'Never'}</dd>
+            <dt>Last successful sync</dt><dd>{c.lastSuccessfulSyncAt ? formatDateTime(c.lastSuccessfulSyncAt) : 'Never'}</dd>
+            <dt>Tally available (last heartbeat)</dt><dd>{c.lastTallyAvailable === null ? '—' : (c.lastTallyAvailable ? 'Yes' : 'No')}</dd>
+            <dt>Last error</dt><dd>{c.lastErrorCode ? `${c.lastErrorCode} — ${c.lastErrorMessage ?? ''}` : '—'}</dd>
+            <dt>Created</dt><dd>{formatDateTime(c.createdAt)}</dd>
+            <dt>Updated</dt><dd>{formatDateTime(c.updatedAt)}</dd>
+            {c.revokedAt && (<><dt>Revoked</dt><dd>{formatDateTime(c.revokedAt)}</dd></>)}
+          </dl>
+        </CardBody>
+      </Card>
 
       {canManage && c.status === 'ACTIVE' && (
-        <section className="card">
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => setConfirmAction({ type: 'rotate' })}>Rotate secret</button>
-            <button type="button" className="btn btn--danger" onClick={() => setConfirmAction({ type: 'revoke' })}>Revoke connector</button>
-          </div>
-        </section>
+        <Card>
+          <CardBody>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <Button type="button" variant="outline" className="btn" onClick={() => setConfirmAction({ type: 'rotate' })}>
+                Rotate secret
+              </Button>
+              <Button type="button" variant="danger" className="btn btn--danger" onClick={() => setConfirmAction({ type: 'revoke' })}>
+                Revoke connector
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       )}
 
       <ConfirmDialog
@@ -95,6 +136,6 @@ export default function ConnectorDetailPage() {
         onConfirm={runConfirmedAction}
         onCancel={() => setConfirmAction(null)}
       />
-    </>
+    </div>
   );
 }

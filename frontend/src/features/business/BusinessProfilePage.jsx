@@ -5,6 +5,17 @@ import { can } from '../../permissions/permissions.js';
 import PageHeader from '../../components/PageHeader.jsx';
 import { ErrorState, LoadingState } from '../../components/states.jsx';
 import { formatDateTime } from '../../utils/format.js';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardBody,
+  Button,
+  FormField,
+  TextInput,
+  DefinitionList,
+  DefinitionItem,
+} from '../../design-system/index.js';
 
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const PINCODE_RE = /^\d{6}$/;
@@ -96,114 +107,188 @@ export default function BusinessProfilePage() {
 
   if (editing) {
     return (
-      <>
+      <div className="page-container">
         <PageHeader title="Business profile" subtitle="Business info, tax info, contact, address and settings." />
-        <form className="card form" onSubmit={onSubmit} noValidate>
-          {notice && <p className="state" role="status">{notice}</p>}
+        <Card>
+          <CardBody>
+            <form className="form" onSubmit={onSubmit} noValidate>
+              {notice && <p className="state" role="status" style={{ marginBottom: '1.25rem' }}>{notice}</p>}
 
-          <fieldset>
-            <legend>Business info</legend>
-            <label className="field">
-              <span>Display name *</span>
-              <input value={form.displayName} onChange={(e) => set({ displayName: e.target.value })} maxLength={200} required />
-              {errors.displayName && <span className="field__error">{errors.displayName}</span>}
-            </label>
-            <fieldset>
-              <legend>Offerings</legend>
-              <label className="field field--inline"><input type="checkbox" checked={form.offerings.includes('PRODUCT')} onChange={() => toggleOffering('PRODUCT')} /><span>Products</span></label>
-              <label className="field field--inline"><input type="checkbox" checked={form.offerings.includes('SERVICE')} onChange={() => toggleOffering('SERVICE')} /><span>Services</span></label>
-            </fieldset>
-          </fieldset>
+              <fieldset style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                <legend style={{ fontWeight: 600, color: 'var(--ink)', padding: '0 0.5rem' }}>Business info</legend>
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  <FormField label="Display name *" error={errors.displayName}>
+                    <TextInput value={form.displayName} onChange={(e) => set({ displayName: e.target.value })} maxLength={200} required />
+                  </FormField>
+                  <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                    <legend style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--ink-secondary)', marginBottom: '0.5rem' }}>Offerings</legend>
+                    <div style={{ display: 'flex', gap: '1.5rem' }}>
+                      <label className="field field--inline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={form.offerings.includes('PRODUCT')} onChange={() => toggleOffering('PRODUCT')} />
+                        <span style={{ fontSize: '0.9375rem', color: 'var(--ink)' }}>Products</span>
+                      </label>
+                      <label className="field field--inline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={form.offerings.includes('SERVICE')} onChange={() => toggleOffering('SERVICE')} />
+                        <span style={{ fontSize: '0.9375rem', color: 'var(--ink)' }}>Services</span>
+                      </label>
+                    </div>
+                  </fieldset>
+                </div>
+              </fieldset>
 
-          <fieldset>
-            <legend>Tax info</legend>
-            <label className="field">
-              <span>GSTIN</span>
-              <input value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} maxLength={15} />
-              {errors.gstin && <span className="field__error">{errors.gstin}</span>}
-              <span className="muted">Format is validated only — this is not a government verification.</span>
-            </label>
-          </fieldset>
+              <fieldset style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                <legend style={{ fontWeight: 600, color: 'var(--ink)', padding: '0 0.5rem' }}>Tax info</legend>
+                <FormField label="GSTIN" error={errors.gstin} hint="Format is validated only — this is not a government verification.">
+                  <TextInput value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} maxLength={15} />
+                </FormField>
+              </fieldset>
 
-          <fieldset>
-            <legend>Contact</legend>
-            <label className="field"><span>Mobile</span><input value={form.mobile} onChange={(e) => set({ mobile: e.target.value })} maxLength={20} /></label>
-            <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
-            <label className="field">
-              <span>Website</span>
-              <input value={form.website} onChange={(e) => set({ website: e.target.value })} placeholder="https://" />
-              {errors.website && <span className="field__error">{errors.website}</span>}
-            </label>
-          </fieldset>
+              <fieldset style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                <legend style={{ fontWeight: 600, color: 'var(--ink)', padding: '0 0.5rem' }}>Contact</legend>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  <FormField label="Mobile">
+                    <TextInput value={form.mobile} onChange={(e) => set({ mobile: e.target.value })} maxLength={20} />
+                  </FormField>
+                  <FormField label="Email">
+                    <TextInput type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} />
+                  </FormField>
+                  <FormField label="Website" error={errors.website}>
+                    <TextInput value={form.website} onChange={(e) => set({ website: e.target.value })} placeholder="https://" />
+                  </FormField>
+                </div>
+              </fieldset>
 
-          <fieldset>
-            <legend>Address</legend>
-            <label className="field"><span>Address line 1</span><input value={form.address.line1} onChange={(e) => setAddr({ line1: e.target.value })} /></label>
-            <label className="field"><span>Address line 2</span><input value={form.address.line2} onChange={(e) => setAddr({ line2: e.target.value })} /></label>
-            <label className="field"><span>City</span><input value={form.address.city} onChange={(e) => setAddr({ city: e.target.value })} /></label>
-            <label className="field"><span>State</span><input value={form.address.state} onChange={(e) => setAddr({ state: e.target.value })} /></label>
-            <label className="field"><span>State code</span><input value={form.address.stateCode} onChange={(e) => setAddr({ stateCode: e.target.value })} maxLength={2} /></label>
-            <label className="field">
-              <span>Pincode</span>
-              <input value={form.address.pincode} onChange={(e) => setAddr({ pincode: e.target.value })} maxLength={6} />
-              {errors.pincode && <span className="field__error">{errors.pincode}</span>}
-            </label>
-          </fieldset>
+              <fieldset style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '1.5rem' }}>
+                <legend style={{ fontWeight: 600, color: 'var(--ink)', padding: '0 0.5rem' }}>Address</legend>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <FormField label="Address line 1">
+                      <TextInput value={form.address.line1} onChange={(e) => setAddr({ line1: e.target.value })} />
+                    </FormField>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <FormField label="Address line 2">
+                      <TextInput value={form.address.line2} onChange={(e) => setAddr({ line2: e.target.value })} />
+                    </FormField>
+                  </div>
+                  <FormField label="City">
+                    <TextInput value={form.address.city} onChange={(e) => setAddr({ city: e.target.value })} />
+                  </FormField>
+                  <FormField label="State">
+                    <TextInput value={form.address.state} onChange={(e) => setAddr({ state: e.target.value })} />
+                  </FormField>
+                  <FormField label="State code">
+                    <TextInput value={form.address.stateCode} onChange={(e) => setAddr({ stateCode: e.target.value })} maxLength={2} />
+                  </FormField>
+                  <FormField label="Pincode" error={errors.pincode}>
+                    <TextInput value={form.address.pincode} onChange={(e) => setAddr({ pincode: e.target.value })} maxLength={6} />
+                  </FormField>
+                </div>
+              </fieldset>
 
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => setEditing(false)}>Cancel</button>
-            <button type="submit" className="btn btn--primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
-          </div>
-        </form>
-      </>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <Button type="button" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
+                <Button type="submit" variant="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
+              </div>
+            </form>
+          </CardBody>
+        </Card>
+      </div>
     );
   }
 
   if (state.status === 'empty') {
     return (
-      <>
+      <div className="page-container">
         <PageHeader title="Business profile" subtitle="Set up your business profile to appear on future invoices." />
-        <section className="card placeholder">
-          <p>No business profile has been set up for this client yet.</p>
-          {canEdit
-            ? <button type="button" className="btn btn--primary" onClick={() => startEdit(null)}>Set up business profile</button>
-            : <p className="muted">Ask a Client Admin to set this up.</p>}
-        </section>
-      </>
+        <Card>
+          <CardBody style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
+            <div style={{ maxWidth: '440px', margin: '0 auto' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--brand-surface)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', fontSize: '1.5rem' }}>
+                🏢
+              </div>
+              <h3 style={{ margin: '0 0 0.5rem', color: 'var(--ink)' }}>No business profile configured</h3>
+              <p style={{ color: 'var(--ink-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                No business profile has been set up for this client yet. Set up details to brand and populate future invoices.
+              </p>
+              {canEdit ? (
+                <Button variant="primary" type="button" onClick={() => startEdit(null)}>
+                  Set up business profile
+                </Button>
+              ) : (
+                <p className="muted" style={{ margin: 0 }}>Ask a Client Admin to set this up.</p>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+      </div>
     );
   }
 
   const { profile } = state;
   return (
-    <>
+    <div className="page-container">
       <PageHeader
         title={profile.displayName}
         subtitle={`Last updated ${formatDateTime(profile.updatedAt)}`}
-        actions={canEdit && <button type="button" className="btn" onClick={() => startEdit(profile)}>Edit</button>}
+        actions={canEdit && <Button variant="outline" type="button" onClick={() => startEdit(profile)}>Edit</Button>}
       />
-      {notice && <p className="state" role="status">{notice}</p>}
-      <section className="card">
-        <h2>Tax info</h2>
-        <dl className="definition-list">
-          <div><dt>GSTIN</dt><dd className="mono">{profile.gstin ?? '—'}</dd></div>
-        </dl>
-      </section>
-      <section className="card">
-        <h2>Contact</h2>
-        <dl className="definition-list">
-          <div><dt>Mobile</dt><dd>{profile.mobile ?? '—'}</dd></div>
-          <div><dt>Email</dt><dd>{profile.email ?? '—'}</dd></div>
-          <div><dt>Website</dt><dd>{profile.website ?? '—'}</dd></div>
-        </dl>
-      </section>
-      <section className="card">
-        <h2>Address</h2>
-        <p>{[profile.address?.line1, profile.address?.line2, profile.address?.city, profile.address?.state, profile.address?.pincode].filter(Boolean).join(', ') || '—'}</p>
-      </section>
-      <section className="card">
-        <h2>Offerings</h2>
-        <p>{(profile.offerings ?? []).join(', ') || '—'}</p>
-      </section>
-    </>
+      {notice && <p className="state" role="status" style={{ marginBottom: '1.25rem' }}>{notice}</p>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Tax info</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <DefinitionList>
+              <DefinitionItem label="GSTIN" value={<span className="mono">{profile.gstin ?? '—'}</span>} />
+            </DefinitionList>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Contact</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <DefinitionList>
+              <DefinitionItem label="Mobile" value={profile.mobile ?? '—'} />
+              <DefinitionItem label="Email" value={profile.email ?? '—'} />
+              <DefinitionItem
+                label="Website"
+                value={profile.website ? (
+                  <a href={profile.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'none' }}>
+                    {profile.website}
+                  </a>
+                ) : '—'}
+              />
+            </DefinitionList>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Address</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p style={{ margin: 0, color: 'var(--ink)', lineHeight: 1.6 }}>
+              {[profile.address?.line1, profile.address?.line2, profile.address?.city, profile.address?.state, profile.address?.pincode].filter(Boolean).join(', ') || '—'}
+            </p>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Offerings</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p style={{ margin: 0, color: 'var(--ink)', lineHeight: 1.6 }}>
+              {(profile.offerings ?? []).join(', ') || '—'}
+            </p>
+          </CardBody>
+        </Card>
+      </div>
+    </div>
   );
 }

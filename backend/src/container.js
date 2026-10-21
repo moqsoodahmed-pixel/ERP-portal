@@ -9,6 +9,7 @@ import { ProductService, CustomerService } from './services/catalog.services.js'
 import { BusinessProfileService } from './services/businessProfile.service.js';
 import { InvoiceService } from './services/invoice.service.js';
 import { InvoiceCalculationService } from './services/invoiceCalculation.service.js';
+import { CreditDebitNoteService } from './services/creditDebitNote.service.js';
 import { VendorService } from './services/vendor.service.js';
 import { GSTFilingService } from './services/gstFiling.service.js';
 import { GSTBillService } from './services/gstBill.service.js';
@@ -47,10 +48,13 @@ export function buildContainer(models) {
     businessProfileRepo: repos.businessProfiles, notificationService,
   });
   const documentService = new DocumentService({
-    documentRepo: repos.documents, storageService, pdfService: invoicePdfService, auditService,
+    documentRepo: repos.documents, storageService, pdfService: invoicePdfService, auditService, fileMetadataRepo: repos.fileMetadata,
+  });
+  const creditDebitNoteService = new CreditDebitNoteService({
+    noteRepo: repos.creditDebitNotes, invoiceRepo: repos.invoices, productRepo: repos.products, counterRepo: repos.counters, calculator, auditService,
   });
   const services = {
-    auditService, securityService, permissionService, invoiceService, documentService, notificationService,
+    auditService, securityService, permissionService, invoiceService, documentService, notificationService, creditDebitNoteService,
     authService: new AuthService({
       userRepo: repos.users, tenantRepo: repos.tenants, vendorRepo: repos.vendors, refreshRepo: repos.refreshTokens, auditService, securityService, permissionService,
     }),
@@ -60,7 +64,7 @@ export function buildContainer(models) {
     }),
     userService: new UserService({ userRepo: repos.users, auditService }),
     businessProfileService: new BusinessProfileService({
-      businessProfileRepo: repos.businessProfiles, fileMetadataRepo: repos.fileMetadata, storageService, auditService,
+      businessProfileRepo: repos.businessProfiles, fileMetadataRepo: repos.fileMetadata, storageService, auditService, pdfService: invoicePdfService,
     }),
     productService: new ProductService({ productRepo: repos.products, counterRepo: repos.counters, auditService }),
     customerService: new CustomerService({ customerRepo: repos.customers, counterRepo: repos.counters, auditService }),

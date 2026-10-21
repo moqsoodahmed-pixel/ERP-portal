@@ -1,10 +1,23 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import ConfirmDialog from '../../components/ConfirmDialog.jsx';
-import { ErrorState, LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  StatusBadge,
+  ConfirmModal,
+  DefinitionList,
+  DefinitionItem,
+  Button,
+  Modal,
+  FormField,
+  TextInput,
+  Textarea,
+  ErrorState,
+  LoadingState,
+} from '../../design-system/index.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
 
 const STATUS_ACTIONS = [
@@ -13,7 +26,6 @@ const STATUS_ACTIONS = [
   { to: 'INACTIVE', label: 'Deactivate', needsReason: true, danger: true },
 ];
 
-/** Loads the tenant record together with its per-client summary. */
 function useClientDetails(id) {
   const [state, setState] = useState({ status: 'loading', tenant: null, summary: null, error: null });
   const [reloadToken, setReloadToken] = useState(0);
@@ -86,84 +98,132 @@ export default function ClientDetailsPage() {
         title={tenant.businessName}
         subtitle={`${tenant.tenantCode} · Created ${formatDate(tenant.createdAt)} · Last updated ${formatDate(tenant.updatedAt)}`}
         actions={(
-          <div className="toolbar">
+          <div className="toolbar" style={{ alignItems: 'center' }}>
             <StatusBadge status={tenant.status} />
-            <button type="button" className="btn" onClick={startEdit}>Edit</button>
+            <Button onClick={startEdit}>Edit</Button>
             {STATUS_ACTIONS.filter((a) => a.to !== tenant.status).map((a) => (
-              <button key={a.to} type="button" className={`btn ${a.danger ? 'btn--danger' : ''}`} onClick={() => { setPendingStatus(a); setReason(''); }}>{a.label}</button>
+              <Button
+                key={a.to}
+                variant={a.danger ? 'danger' : 'secondary'}
+                onClick={() => { setPendingStatus(a); setReason(''); }}
+              >
+                {a.label}
+              </Button>
             ))}
           </div>
         )}
       />
       {notice && <p className="state" role="status">{notice}</p>}
 
-      <section className="card">
-        <h2>Business profile</h2>
-        <dl className="definition-list">
-          <div><dt>Legal name</dt><dd>{tenant.legalName ?? '—'}</dd></div>
-          <div><dt>GSTIN</dt><dd className="mono">{tenant.gstin ?? '—'}</dd></div>
-          <div><dt>PAN</dt><dd className="mono">{tenant.pan ?? '—'}</dd></div>
-          <div><dt>Email</dt><dd>{tenant.email ?? '—'}</dd></div>
-          <div><dt>Phone</dt><dd>{tenant.phone ?? '—'}</dd></div>
-          <div><dt>Address</dt><dd>{[tenant.address?.line1, tenant.address?.city, tenant.address?.state, tenant.address?.pincode].filter(Boolean).join(', ') || '—'}</dd></div>
-        </dl>
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Business profile" />
+        <CardBody>
+          <DefinitionList>
+            <DefinitionItem label="Legal name" value={tenant.legalName} />
+            <DefinitionItem label="GSTIN" value={tenant.gstin} mono />
+            <DefinitionItem label="PAN" value={tenant.pan} mono />
+            <DefinitionItem label="Email" value={tenant.email} />
+            <DefinitionItem label="Phone" value={tenant.phone} />
+            <DefinitionItem
+              label="Address"
+              value={[tenant.address?.line1, tenant.address?.city, tenant.address?.state, tenant.address?.pincode].filter(Boolean).join(', ') || '—'}
+            />
+          </DefinitionList>
+        </CardBody>
+      </Card>
 
-      <section className="card">
-        <h2>Users</h2>
-        <div className="stat-row">
-          <div className="stat"><span className="stat__value">{summary.users.total}</span><span className="muted">Total</span></div>
-          <div className="stat"><span className="stat__value">{summary.users.active}</span><span className="muted">Active</span></div>
-          <div className="stat"><span className="stat__value">{summary.users.pending}</span><span className="muted">Pending</span></div>
-          <div className="stat"><span className="stat__value">{summary.users.suspended}</span><span className="muted">Suspended</span></div>
-          {summary.activeVendorAssignments !== null && summary.activeVendorAssignments !== undefined && (
-            <div className="stat"><span className="stat__value">{summary.activeVendorAssignments}</span><span className="muted">Active vendor assignments</span></div>
-          )}
-        </div>
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Users" />
+        <CardBody>
+          <div className="stat-row">
+            <div className="stat"><span className="stat__value">{summary.users.total}</span><span className="muted">Total</span></div>
+            <div className="stat"><span className="stat__value">{summary.users.active}</span><span className="muted">Active</span></div>
+            <div className="stat"><span className="stat__value">{summary.users.pending}</span><span className="muted">Pending</span></div>
+            <div className="stat"><span className="stat__value">{summary.users.suspended}</span><span className="muted">Suspended</span></div>
+            {summary.activeVendorAssignments !== null && summary.activeVendorAssignments !== undefined && (
+              <div className="stat"><span className="stat__value">{summary.activeVendorAssignments}</span><span className="muted">Active vendor assignments</span></div>
+            )}
+          </div>
+        </CardBody>
+      </Card>
 
-      {editing && (
-        <div className="overlay">
-          <form className="dialog" onSubmit={saveEdit}>
-            <h2>Edit client</h2>
-            <label className="field"><span>Business name</span><input value={edit.businessName} onChange={(e) => setEdit((f) => ({ ...f, businessName: e.target.value }))} required /></label>
-            <label className="field"><span>Legal name</span><input value={edit.legalName} onChange={(e) => setEdit((f) => ({ ...f, legalName: e.target.value }))} /></label>
-            <label className="field"><span>GSTIN</span><input value={edit.gstin} onChange={(e) => setEdit((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} /></label>
-            <label className="field"><span>PAN</span><input value={edit.pan} onChange={(e) => setEdit((f) => ({ ...f, pan: e.target.value.toUpperCase() }))} /></label>
-            <label className="field"><span>Email</span><input type="email" value={edit.email} onChange={(e) => setEdit((f) => ({ ...f, email: e.target.value }))} /></label>
-            <label className="field"><span>Phone</span><input value={edit.phone} onChange={(e) => setEdit((f) => ({ ...f, phone: e.target.value }))} /></label>
-            <div className="dialog__actions">
-              <button type="button" className="btn" onClick={() => setEditing(false)}>Cancel</button>
-              <button type="submit" className="btn btn--primary" disabled={busy}>Save</button>
-            </div>
-          </form>
+      <Modal
+        open={editing}
+        onClose={() => setEditing(false)}
+        title="Edit client"
+        footer={(
+          <>
+            <Button onClick={() => setEditing(false)}>Cancel</Button>
+            <Button variant="primary" disabled={busy} onClick={saveEdit}>Save</Button>
+          </>
+        )}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <FormField label="Business name" required>
+            <TextInput value={edit?.businessName ?? ''} onChange={(e) => setEdit((f) => ({ ...f, businessName: e.target.value }))} required />
+          </FormField>
+          <FormField label="Legal name">
+            <TextInput value={edit?.legalName ?? ''} onChange={(e) => setEdit((f) => ({ ...f, legalName: e.target.value }))} />
+          </FormField>
+          <FormField label="GSTIN">
+            <TextInput value={edit?.gstin ?? ''} onChange={(e) => setEdit((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} />
+          </FormField>
+          <FormField label="PAN">
+            <TextInput value={edit?.pan ?? ''} onChange={(e) => setEdit((f) => ({ ...f, pan: e.target.value.toUpperCase() }))} />
+          </FormField>
+          <FormField label="Email">
+            <TextInput type="email" value={edit?.email ?? ''} onChange={(e) => setEdit((f) => ({ ...f, email: e.target.value }))} />
+          </FormField>
+          <FormField label="Phone">
+            <TextInput value={edit?.phone ?? ''} onChange={(e) => setEdit((f) => ({ ...f, phone: e.target.value }))} />
+          </FormField>
         </div>
-      )}
+      </Modal>
 
       {pendingStatus && pendingStatus.needsReason && (
-        <div className="overlay">
-          <form className="dialog" onSubmit={(e) => { e.preventDefault(); applyStatus(); }}>
-            <h2>{pendingStatus.label} {tenant.businessName}?</h2>
-            <label className="field">
-              <span>Reason (required)</span>
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={5} maxLength={500} required rows={4} />
-            </label>
-            <div className="dialog__actions">
-              <button type="button" className="btn" onClick={() => setPendingStatus(null)}>Cancel</button>
-              <button type="submit" className="btn btn--danger" disabled={busy || reason.trim().length < 5}>{pendingStatus.label}</button>
-            </div>
-          </form>
-        </div>
+        <Modal
+          open={Boolean(pendingStatus)}
+          onClose={() => setPendingStatus(null)}
+          title={`${pendingStatus.label} ${tenant.businessName}?`}
+          footer={(
+            <>
+              <Button onClick={() => setPendingStatus(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                disabled={busy || reason.trim().length < 5}
+                onClick={applyStatus}
+              >
+                {pendingStatus.label}
+              </Button>
+            </>
+          )}
+        >
+          <FormField label="Reason (required)" required hint="Minimum 5 characters">
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              minLength={5}
+              maxLength={500}
+              required
+              rows={4}
+              placeholder="State the reason for this administrative status change…"
+            />
+          </FormField>
+        </Modal>
       )}
 
       {pendingStatus && !pendingStatus.needsReason && (
-        <ConfirmDialog
-          open title={`${pendingStatus.label} ${tenant.businessName}?`} message="This takes effect immediately." confirmLabel={pendingStatus.label}
-          onConfirm={applyStatus} onCancel={() => setPendingStatus(null)}
+        <ConfirmModal
+          open={Boolean(pendingStatus)}
+          title={`${pendingStatus.label} ${tenant.businessName}?`}
+          message="This takes effect immediately."
+          confirmLabel={pendingStatus.label}
+          onConfirm={applyStatus}
+          onCancel={() => setPendingStatus(null)}
         />
       )}
 
-      <p className="muted">Full audit history of this client is available under Platform → Audit logs. Last touched {formatDateTime(tenant.updatedAt)}.</p>
+      <p className="muted" style={{ fontSize: '13px' }}>Full audit history of this client is available under Platform → Audit logs. Last touched {formatDateTime(tenant.updatedAt)}.</p>
     </>
   );
 }

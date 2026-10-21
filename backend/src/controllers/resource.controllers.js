@@ -34,20 +34,48 @@ const crudController = (service, { archive = true } = {}) => ({
   ...(archive ? { archive: asyncHandler(async (req, res) => ok(req, res, await service.archive(ctx(req), req.params.id), 'Archived')) } : {}),
 });
 
+/** Streams a stored image buffer with a safe, server-derived filename — shared by every letterhead asset GET. */
+function sendImage(res, buffer, mimeType, fileName) {
+  const safeName = String(fileName ?? 'image').replace(/[^A-Za-z0-9-_.]/g, '_');
+  res.setHeader('Content-Type', mimeType);
+  res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+  res.setHeader('Content-Length', String(buffer.length));
+  res.status(200).send(buffer);
+}
+
+/** Phase 22: one GET/POST/DELETE triple per letterhead asset type, all the same shape as the original logo-only handlers. */
+const assetActions = (service, getFn, uploadFn, removeFn, label) => ({
+  [getFn]: asyncHandler(async (req, res) => {
+    const { buffer, mimeType, fileName } = await service[getFn](ctx(req));
+    sendImage(res, buffer, mimeType, fileName);
+  }),
+  [uploadFn]: asyncHandler(async (req, res) => ok(req, res, await service[uploadFn](ctx(req), req.body), `${label} uploaded`)),
+  [removeFn]: asyncHandler(async (req, res) => ok(req, res, await service[removeFn](ctx(req)), `${label} removed`)),
+});
+
 export const createBusinessProfileController = ({ businessProfileService }) => ({
   get: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.get(ctx(req)))),
   create: asyncHandler(async (req, res) => created(req, res, await businessProfileService.create(ctx(req), req.body))),
   update: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.update(ctx(req), req.body))),
+  resetLetterhead: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.resetLetterhead(ctx(req)), 'Letterhead reset to default')),
   uploadLogo: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.uploadLogo(ctx(req), req.body), 'Logo uploaded')),
   removeLogo: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.removeLogo(ctx(req)), 'Logo removed')),
   getLogo: asyncHandler(async (req, res) => {
     const { buffer, mimeType, fileName } = await businessProfileService.getLogo(ctx(req));
-    const safeName = String(fileName ?? 'logo').replace(/[^A-Za-z0-9-_.]/g, '_');
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    sendImage(res, buffer, mimeType, fileName);
+  }),
+  previewLetterheadPdf: asyncHandler(async (req, res) => {
+    const buffer = await businessProfileService.previewLetterheadPdf(ctx(req));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="letterhead-preview.pdf"');
     res.setHeader('Content-Length', String(buffer.length));
     res.status(200).send(buffer);
   }),
+  ...assetActions(businessProfileService, 'getBackground', 'uploadBackground', 'removeBackground', 'Letterhead background'),
+  ...assetActions(businessProfileService, 'getWatermark', 'uploadWatermark', 'removeWatermark', 'Watermark'),
+  ...assetActions(businessProfileService, 'getSignature', 'uploadSignature', 'removeSignature', 'Signature'),
+  ...assetActions(businessProfileService, 'getSeal', 'uploadSeal', 'removeSeal', 'Company seal'),
+  ...assetActions(businessProfileService, 'getQrCode', 'uploadQrCode', 'removeQrCode', 'QR code'),
 });
 
 export const createProductController = ({ productService }) => crudController(productService);
@@ -93,6 +121,15 @@ export const createInvoiceController = ({ invoiceService, documentService }) => 
     const { buffer, fileName } = await documentService.getOrGenerate(c, invoice, { forceRegenerate: true });
     return sendPdf(res, buffer, fileName);
   }),
+});
+
+export const createCreditDebitNoteController = ({ creditDebitNoteService }) => ({
+  list: asyncHandler(async (req, res) => ok(req, res, await creditDebitNoteService.list(ctx(req), req.query))),
+  get: asyncHandler(async (req, res) => ok(req, res, await creditDebitNoteService.get(ctx(req), req.params.id))),
+  listForInvoice: asyncHandler(async (req, res) => ok(req, res, await creditDebitNoteService.listByInvoice(ctx(req), req.params.id))),
+  createCreditNote: asyncHandler(async (req, res) => created(req, res, await creditDebitNoteService.createCreditNote(ctx(req), req.params.id, req.body), 'Credit note issued')),
+  createDebitNote: asyncHandler(async (req, res) => created(req, res, await creditDebitNoteService.createDebitNote(ctx(req), req.params.id, req.body), 'Debit note issued')),
+  cancel: asyncHandler(async (req, res) => ok(req, res, await creditDebitNoteService.cancel(ctx(req), req.params.id, req.body.reason), 'Note cancelled')),
 });
 
 export const createVendorController = ({ vendorService }) => ({

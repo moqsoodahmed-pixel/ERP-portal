@@ -1,11 +1,22 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { ErrorState, LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  StatusBadge,
+  DefinitionList,
+  DefinitionItem,
+  Button,
+  FormField,
+  Checkbox,
+  ErrorState,
+  LoadingState,
+} from '../../design-system/index.js';
 
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const PAN_RE = /^[A-Z]{5}\d{4}[A-Z]$/;
@@ -97,78 +108,87 @@ export default function CustomerFormPage() {
     return (
       <>
         <PageHeader title={isNew ? 'New customer' : `Edit ${state.customer.name}`} />
-        <form className="card form" onSubmit={onSubmit} noValidate>
+        <form onSubmit={onSubmit} noValidate>
           {notice && <p className="state" role="status">{notice}</p>}
 
-          <fieldset>
-            <legend>Basic info</legend>
-            <label className="field">
-              <span>Name *</span>
-              <input value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={200} required />
-              {errors.name && <span className="field__error">{errors.name}</span>}
-            </label>
-            <label className="field"><span>Business name</span><input value={form.businessName} onChange={(e) => set({ businessName: e.target.value })} maxLength={200} /></label>
-          </fieldset>
+          <Card style={{ marginBottom: '1.25rem' }}>
+            <CardHeader title="Basic info" />
+            <CardBody>
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+                <FormField label="Name" required error={errors.name}>
+                  <input className="input" value={form.name} onChange={(e) => set({ name: e.target.value })} maxLength={200} required />
+                </FormField>
+                <FormField label="Business name">
+                  <input className="input" value={form.businessName} onChange={(e) => set({ businessName: e.target.value })} maxLength={200} />
+                </FormField>
+              </div>
+            </CardBody>
+          </Card>
 
-          <fieldset>
-            <legend>Tax info</legend>
-            <label className="field">
-              <span>GSTIN</span>
-              <input value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} maxLength={15} />
-              {errors.gstin && <span className="field__error">{errors.gstin}</span>}
-            </label>
-            <label className="field">
-              <span>PAN</span>
-              <input value={form.pan} onChange={(e) => set({ pan: e.target.value.toUpperCase() })} maxLength={10} />
-              {errors.pan && <span className="field__error">{errors.pan}</span>}
-            </label>
-          </fieldset>
+          <Card style={{ marginBottom: '1.25rem' }}>
+            <CardHeader title="Tax & Contact" />
+            <CardBody>
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+                <FormField label="GSTIN" error={errors.gstin}>
+                  <input className="input" value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} maxLength={15} />
+                </FormField>
+                <FormField label="PAN" error={errors.pan}>
+                  <input className="input" value={form.pan} onChange={(e) => set({ pan: e.target.value.toUpperCase() })} maxLength={10} />
+                </FormField>
+                <FormField label="Phone">
+                  <input className="input" value={form.phone} onChange={(e) => set({ phone: e.target.value })} maxLength={20} />
+                </FormField>
+                <FormField label="Email">
+                  <input className="input" type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} />
+                </FormField>
+              </div>
+            </CardBody>
+          </Card>
 
-          <fieldset>
-            <legend>Contact</legend>
-            <label className="field"><span>Phone</span><input value={form.phone} onChange={(e) => set({ phone: e.target.value })} maxLength={20} /></label>
-            <label className="field"><span>Email</span><input type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} /></label>
-          </fieldset>
+          <Card style={{ marginBottom: '1.25rem' }}>
+            <CardHeader title="Billing address" />
+            <CardBody>
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <FormField label="Line 1"><input className="input" value={form.billingAddress.line1} onChange={(e) => setBilling({ line1: e.target.value })} /></FormField>
+                <FormField label="Line 2"><input className="input" value={form.billingAddress.line2} onChange={(e) => setBilling({ line2: e.target.value })} /></FormField>
+                <FormField label="City"><input className="input" value={form.billingAddress.city} onChange={(e) => setBilling({ city: e.target.value })} /></FormField>
+                <FormField label="State"><input className="input" value={form.billingAddress.state} onChange={(e) => setBilling({ state: e.target.value })} /></FormField>
+                <FormField label="State code"><input className="input" value={form.billingAddress.stateCode} onChange={(e) => setBilling({ stateCode: e.target.value })} maxLength={2} /></FormField>
+                <FormField label="Pincode" error={errors.billingPincode}>
+                  <input className="input" value={form.billingAddress.pincode} onChange={(e) => setBilling({ pincode: e.target.value })} maxLength={6} />
+                </FormField>
+              </div>
+            </CardBody>
+          </Card>
 
-          <fieldset>
-            <legend>Billing address</legend>
-            <label className="field"><span>Line 1</span><input value={form.billingAddress.line1} onChange={(e) => setBilling({ line1: e.target.value })} /></label>
-            <label className="field"><span>Line 2</span><input value={form.billingAddress.line2} onChange={(e) => setBilling({ line2: e.target.value })} /></label>
-            <label className="field"><span>City</span><input value={form.billingAddress.city} onChange={(e) => setBilling({ city: e.target.value })} /></label>
-            <label className="field"><span>State</span><input value={form.billingAddress.state} onChange={(e) => setBilling({ state: e.target.value })} /></label>
-            <label className="field"><span>State code</span><input value={form.billingAddress.stateCode} onChange={(e) => setBilling({ stateCode: e.target.value })} maxLength={2} /></label>
-            <label className="field">
-              <span>Pincode</span>
-              <input value={form.billingAddress.pincode} onChange={(e) => setBilling({ pincode: e.target.value })} maxLength={6} />
-              {errors.billingPincode && <span className="field__error">{errors.billingPincode}</span>}
-            </label>
-          </fieldset>
+          <Card style={{ marginBottom: '1.25rem' }}>
+            <CardHeader title="Shipping address" />
+            <CardBody>
+              <div style={{ marginBottom: '1rem' }}>
+                <Checkbox
+                  checked={form.sameAsBilling}
+                  onChange={(e) => set({ sameAsBilling: e.target.checked })}
+                  label="Same as billing"
+                />
+              </div>
+              {!form.sameAsBilling && (
+                <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <FormField label="Line 1"><input className="input" value={form.shippingAddress.line1} onChange={(e) => setShipping({ line1: e.target.value })} /></FormField>
+                  <FormField label="Line 2"><input className="input" value={form.shippingAddress.line2} onChange={(e) => setShipping({ line2: e.target.value })} /></FormField>
+                  <FormField label="City"><input className="input" value={form.shippingAddress.city} onChange={(e) => setShipping({ city: e.target.value })} /></FormField>
+                  <FormField label="State"><input className="input" value={form.shippingAddress.state} onChange={(e) => setShipping({ state: e.target.value })} /></FormField>
+                  <FormField label="State code"><input className="input" value={form.shippingAddress.stateCode} onChange={(e) => setShipping({ stateCode: e.target.value })} maxLength={2} /></FormField>
+                  <FormField label="Pincode" error={errors.shippingPincode}>
+                    <input className="input" value={form.shippingAddress.pincode} onChange={(e) => setShipping({ pincode: e.target.value })} maxLength={6} />
+                  </FormField>
+                </div>
+              )}
+            </CardBody>
+          </Card>
 
-          <fieldset>
-            <legend>Shipping address</legend>
-            <label className="field field--inline">
-              <input type="checkbox" checked={form.sameAsBilling} onChange={(e) => set({ sameAsBilling: e.target.checked })} />
-              <span>Same as billing</span>
-            </label>
-            {!form.sameAsBilling && (
-              <>
-                <label className="field"><span>Line 1</span><input value={form.shippingAddress.line1} onChange={(e) => setShipping({ line1: e.target.value })} /></label>
-                <label className="field"><span>Line 2</span><input value={form.shippingAddress.line2} onChange={(e) => setShipping({ line2: e.target.value })} /></label>
-                <label className="field"><span>City</span><input value={form.shippingAddress.city} onChange={(e) => setShipping({ city: e.target.value })} /></label>
-                <label className="field"><span>State</span><input value={form.shippingAddress.state} onChange={(e) => setShipping({ state: e.target.value })} /></label>
-                <label className="field"><span>State code</span><input value={form.shippingAddress.stateCode} onChange={(e) => setShipping({ stateCode: e.target.value })} maxLength={2} /></label>
-                <label className="field">
-                  <span>Pincode</span>
-                  <input value={form.shippingAddress.pincode} onChange={(e) => setShipping({ pincode: e.target.value })} maxLength={6} />
-                  {errors.shippingPincode && <span className="field__error">{errors.shippingPincode}</span>}
-                </label>
-              </>
-            )}
-          </fieldset>
-
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => (isNew ? navigate('/client/customers') : setEditing(false))}>Cancel</button>
-            <button type="submit" className="btn btn--primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+          <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+            <Button onClick={() => (isNew ? navigate('/client/customers') : setEditing(false))}>Cancel</Button>
+            <Button type="submit" variant="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>
       </>
@@ -182,31 +202,47 @@ export default function CustomerFormPage() {
         title={customer.name}
         subtitle={customer.customerCode}
         actions={(
-          <div className="toolbar">
+          <div className="toolbar" style={{ alignItems: 'center' }}>
             <StatusBadge status={customer.status} />
-            {can(user, 'customers.update') && customer.status !== 'ARCHIVED' && <button type="button" className="btn" onClick={() => setEditing(true)}>Edit</button>}
+            {can(user, 'customers.update') && customer.status !== 'ARCHIVED' && (
+              <Button onClick={() => setEditing(true)}>Edit</Button>
+            )}
           </div>
         )}
       />
       {notice && <p className="state" role="status">{notice}</p>}
-      <section className="card">
-        <h2>Details</h2>
-        <dl className="definition-list">
-          <div><dt>Business name</dt><dd>{customer.businessName ?? '—'}</dd></div>
-          <div><dt>GSTIN</dt><dd className="mono">{customer.gstin ?? '—'}</dd></div>
-          <div><dt>PAN</dt><dd className="mono">{customer.pan ?? '—'}</dd></div>
-          <div><dt>Phone</dt><dd>{customer.phone ?? '—'}</dd></div>
-          <div><dt>Email</dt><dd>{customer.email ?? '—'}</dd></div>
-        </dl>
-      </section>
-      <section className="card">
-        <h2>Billing address</h2>
-        <p>{[customer.billingAddress?.line1, customer.billingAddress?.city, customer.billingAddress?.state, customer.billingAddress?.pincode].filter(Boolean).join(', ') || '—'}</p>
-      </section>
-      <section className="card">
-        <h2>Shipping address</h2>
-        <p>{[customer.shippingAddress?.line1, customer.shippingAddress?.city, customer.shippingAddress?.state, customer.shippingAddress?.pincode].filter(Boolean).join(', ') || '—'}</p>
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Details" />
+        <CardBody>
+          <DefinitionList columns={3}>
+            <DefinitionItem label="Business name" value={customer.businessName} />
+            <DefinitionItem label="GSTIN" value={customer.gstin} mono />
+            <DefinitionItem label="PAN" value={customer.pan} mono />
+            <DefinitionItem label="Phone" value={customer.phone} />
+            <DefinitionItem label="Email" value={customer.email} />
+          </DefinitionList>
+        </CardBody>
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+        <Card>
+          <CardHeader title="Billing address" />
+          <CardBody>
+            <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
+              {[customer.billingAddress?.line1, customer.billingAddress?.city, customer.billingAddress?.state, customer.billingAddress?.pincode].filter(Boolean).join(', ') || '—'}
+            </p>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader title="Shipping address" />
+          <CardBody>
+            <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>
+              {[customer.shippingAddress?.line1, customer.shippingAddress?.city, customer.shippingAddress?.state, customer.shippingAddress?.pincode].filter(Boolean).join(', ') || '—'}
+            </p>
+          </CardBody>
+        </Card>
+      </div>
     </>
   );
 }

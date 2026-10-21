@@ -4,7 +4,7 @@ import {
   FILING_STATUS, FILING_RETURN_TYPE, FILING_SUBMISSION_SOURCE, FILING_MILESTONE_STATUS,
   FILING_ISSUE_TYPE, FILING_ISSUE_SEVERITY, FILING_ISSUE_STATUS, TALLY_API_KEY_STATUS,
   BILL_STATUS, BILL_TALLY_STATUS, TALLY_CONNECTOR_STATUS, TALLY_JOB_STATUS, TALLY_JOB_TYPE,
-  GST_BILL_MATCH_STATUS, GST_BILL_OVERALL_MATCH_STATUS,
+  GST_BILL_MATCH_STATUS, GST_BILL_OVERALL_MATCH_STATUS, NOTE_TYPE, NOTE_STATUS,
 } from '../constants/statuses.js';
 import { TALLY_API_SCOPES, TALLY_CONNECTOR_SCOPES } from '../integrations/tally/tally.constants.js';
 import {
@@ -66,6 +66,7 @@ export const invoiceItemSchema = new Schema({
   discount: { type: Money, default: 0 },
   taxableAmount: { type: Money, required: true },
   gstRate: { type: Number, default: 0 },
+  cessRate: { type: Number, default: 0 },
   cgst: { type: Money, default: 0 },
   sgst: { type: Money, default: 0 },
   igst: { type: Money, default: 0 },
@@ -74,7 +75,7 @@ export const invoiceItemSchema = new Schema({
 }, { _id: false });
 
 /** Frozen at creation/issue time so later edits to the Customer record never retroactively change history. */
-const customerSnapshotSchema = new Schema({
+export const customerSnapshotSchema = new Schema({
   name: String,
   businessName: String,
   customerCode: String,
@@ -90,7 +91,7 @@ const customerSnapshotSchema = new Schema({
 }, { _id: false });
 
 /** Frozen at creation/issue time so later edits to the Business Profile never retroactively change history. */
-const supplierSnapshotSchema = new Schema({
+export const supplierSnapshotSchema = new Schema({
   businessName: String,
   gstin: String,
   address: addressSchema,
@@ -99,11 +100,35 @@ const supplierSnapshotSchema = new Schema({
   mobile: String,
 }, { _id: false });
 
+/**
+ * Phase 22 — Letterhead snapshot. Frozen at invoice-creation time (same "never let a later Business
+ * Profile edit retroactively change history" rule as customerSnapshot/supplierSnapshot above): only the
+ * FileMetadata *ids* are copied here (not the image bytes themselves — those are fetched through the SAME
+ * tenant-scoped FileMetadata/StorageService path used everywhere else, at PDF-render time), so an asset
+ * re-uploaded or removed after this invoice was created never changes what this invoice's PDF shows.
+ */
+const letterheadSnapshotSchema = new Schema({
+  logoFileId: ObjectId,
+  backgroundFileId: ObjectId,
+  watermarkFileId: ObjectId,
+  signatureFileId: ObjectId,
+  sealFileId: ObjectId,
+  qrCodeFileId: ObjectId,
+  bankDetails: {
+    accountName: String, accountNumber: String, ifsc: String, bankName: String, branch: String,
+  },
+  footerText: String,
+  declaration: String,
+  authorizedSignatoryName: String,
+  authorizedSignatoryDesignation: String,
+}, { _id: false });
+
 const invoiceSchema = new Schema({
   invoiceNumber: { type: String, required: true },
   customerId: { type: ObjectId, ref: 'Customer', required: true },
   customerSnapshot: customerSnapshotSchema,
   supplierSnapshot: supplierSnapshotSchema,
+  letterheadSnapshot: letterheadSnapshotSchema,
   invoiceDate: { type: Date, required: true },
   dueDate: Date,
   items: { type: [invoiceItemSchema], validate: (v) => v.length > 0 },
@@ -138,6 +163,49 @@ invoiceSchema.index({ tenantId: 1, invoiceStatus: 1 });
 invoiceSchema.index({ tenantId: 1, createdAt: -1 });
 invoiceSchema.index({ tenantId: 1, customerId: 1 });
 invoiceSchema.index({ tenantId: 1, invoiceDate: -1 });
+
+/**
+ * Phase 22 — Credit/Debit Notes. Always created directly against an already-ISSUED invoice (never a DRAFT
+ * one) and is itself immutable from the moment it's created: no PATCH/update path exists, only a status
+ * transition to CANCELLED (voided, never deleted — the same "never destroy financial history" rule as
+ * Invoice.cancel). `customerSnapshot`/`supplierSnapshot` are copied straight from the parent invoice's own
+ * frozen snapshots (never re-resolved from the live Customer/BusinessProfile), and `items`/totals are always
+ * computed by the same InvoiceCalculationService the invoice itself uses — never client-supplied.
+ */
+const creditDebitNoteSchema = new Schema({
+  noteNumber: { type: String, required: true },
+  noteType: { type: String, enum: enumOf(NOTE_TYPE), required: true },
+  invoiceId: { type: ObjectId, ref: 'Invoice', required: true },
+  invoiceNumber: { type: String, required: true },
+  customerId: { type: ObjectId, ref: 'Customer', required: true },
+  customerSnapshot: customerSnapshotSchema,
+  supplierSnapshot: supplierSnapshotSchema,
+  letterheadSnapshot: letterheadSnapshotSchema,
+  noteDate: { type: Date, required: true },
+  reason: { type: String, required: true, maxlength: 500 },
+  items: { type: [invoiceItemSchema], validate: (v) => v.length > 0 },
+  subtotal: { type: Money, required: true },
+  discount: { type: Money, default: 0 },
+  taxableAmount: { type: Money, required: true },
+  cgst: { type: Money, default: 0 },
+  sgst: { type: Money, default: 0 },
+  igst: { type: Money, default: 0 },
+  cess: { type: Money, default: 0 },
+  totalTax: { type: Money, default: 0 },
+  roundOff: { type: Money, default: 0 },
+  grandTotal: { type: Money, required: true },
+  gstApplicable: { type: Boolean, required: true },
+  interState: { type: Boolean, default: false },
+  status: { type: String, enum: enumOf(NOTE_STATUS), default: NOTE_STATUS.ISSUED },
+  issuedBy: { type: ObjectId, ref: 'User' },
+  cancelledBy: { type: ObjectId, ref: 'User' },
+  cancelledAt: Date,
+  cancellationReason: { type: String, maxlength: 500 },
+}, { timestamps: true });
+tenantPlugin(creditDebitNoteSchema); softDeletePlugin(creditDebitNoteSchema); actorPlugin(creditDebitNoteSchema);
+creditDebitNoteSchema.index({ tenantId: 1, noteNumber: 1 }, { unique: true });
+creditDebitNoteSchema.index({ tenantId: 1, invoiceId: 1 });
+creditDebitNoteSchema.index({ tenantId: 1, noteType: 1, createdAt: -1 });
 
 const gstConfigSchema = new Schema({
   gstRegistered: { type: Boolean, default: false },
@@ -529,6 +597,7 @@ export const businessModels = {
   Product: model('Product', productSchema),
   Customer: model('Customer', customerSchema),
   Invoice: model('Invoice', invoiceSchema),
+  CreditDebitNote: model('CreditDebitNote', creditDebitNoteSchema),
   GSTConfiguration: model('GSTConfiguration', gstConfigSchema),
   TallyIntegration: model('TallyIntegration', tallyIntegrationSchema),
   TallySyncLog: model('TallySyncLog', tallySyncLogSchema),

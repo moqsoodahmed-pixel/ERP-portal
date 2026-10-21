@@ -9,6 +9,10 @@ export const ALL_PERMISSIONS = Object.freeze([
   ...crud('products'),
   ...crud('customers'),
   'invoices.view', 'invoices.create', 'invoices.update', 'invoices.delete', 'invoices.export', 'invoices.approve', 'invoices.issue', 'invoices.cancel',
+  // Phase 22: Credit/Debit Notes — the only way to amend an already-ISSUED invoice. Kept as its own
+  // permission family (not folded into invoices.*) since viewing/creating/cancelling a note is a distinct
+  // action from editing the invoice itself (which is impossible once ISSUED).
+  'notes.view', 'notes.create', 'notes.cancel',
   'gst.view', 'gst.manage', 'gst.file', 'gst.update_status',
   'gst_filings.view', 'gst_filings.create', 'gst_filings.update', 'gst_filings.submit', 'gst_filings.mark_filed',
   'gst_filing_issues.view', 'gst_filing_issues.create', 'gst_filing_issues.update', 'gst_filing_issues.resolve',
@@ -58,7 +62,7 @@ export const ROLE_DEFAULT_PERMISSIONS = Object.freeze({
     ...crud('clients'), ...crud('users'),
     'vendors.view', 'vendors.create', 'vendors.update', 'vendors.assign',
     'dashboard.view', 'platform.view', 'audit_logs.view', 'dataRequests.view', 'dataRequests.manage',
-    'products.view', 'customers.view', 'invoices.view', 'gst.view', 'tally.view', 'tally.manage',
+    'products.view', 'customers.view', 'invoices.view', 'notes.view', 'gst.view', 'tally.view', 'tally.manage',
     'tally.api_keys.view', 'tally.api_keys.create', 'tally.api_keys.revoke', 'tally.api_keys.rotate',
     'reports.view', 'reports.export', 'business.view',
     'gst_filings.view', 'gst_filings.create', 'gst_filings.update', 'gst_filings.submit', 'gst_filings.mark_filed',
@@ -78,6 +82,7 @@ export const ROLE_DEFAULT_PERMISSIONS = Object.freeze({
     'dashboard.view', 'business.view', 'business.update',
     ...crud('users'), ...crud('products'), ...crud('customers'),
     'invoices.view', 'invoices.create', 'invoices.update', 'invoices.delete', 'invoices.export', 'invoices.approve', 'invoices.issue', 'invoices.cancel',
+    'notes.view', 'notes.create', 'notes.cancel',
     'gst.view', 'gst.manage', 'tally.view', 'tally.sync', 'tally.configure',
     'tally.api_keys.view', 'tally.api_keys.create', 'tally.api_keys.revoke', 'tally.api_keys.rotate',
     'reports.view', 'reports.export', 'dataRequests.view', 'dataRequests.manage',
@@ -92,11 +97,11 @@ export const ROLE_DEFAULT_PERMISSIONS = Object.freeze({
     'tally.connector.view', 'tally.connector.manage',
   ],
   [ROLES.CLIENT_USER]: [
-    'dashboard.view', 'products.view', 'customers.view', 'invoices.view',
+    'dashboard.view', 'products.view', 'customers.view', 'invoices.view', 'notes.view',
     'bills.view', 'bills.create', 'bills.update', 'bills.submit', 'bills.documents.upload', 'bills.documents.view',
   ],
   [ROLES.GST_VENDOR]: [
-    'dashboard.view', 'gst.view', 'gst.update_status', 'gst.file', 'invoices.view', 'tally.view',
+    'dashboard.view', 'gst.view', 'gst.update_status', 'gst.file', 'invoices.view', 'notes.view', 'tally.view',
     // mark_filed is granted to the vendor too: Phase 1-7 already trusted GST_VENDOR with the equivalent
     // 'gst.file' permission by default, so Phase 8 keeps that same philosophy rather than inventing a new,
     // more restrictive tier — the assignment-chain check (never permission alone) is what actually gates access.

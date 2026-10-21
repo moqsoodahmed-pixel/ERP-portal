@@ -22,7 +22,7 @@ import { z } from 'zod';
 import { createAuthController } from '../controllers/auth.controller.js';
 import {
   createClientController, createUserController, createProductController, createCustomerController, createInvoiceController,
-  createVendorController, createAuditController, createTallyController, createBusinessProfileController, notImplemented,
+  createCreditDebitNoteController, createVendorController, createAuditController, createTallyController, createBusinessProfileController, notImplemented,
 } from '../controllers/resource.controllers.js';
 import { createGSTFilingController } from '../controllers/gstFiling.controller.js';
 import { createGSTBillController } from '../controllers/gstBill.controller.js';
@@ -124,6 +124,22 @@ export function createV1Router({ container, access, limiters }) {
   r.post('/business-profile/logo', ...tenantScoped('business.update'), validate({ body: v.businessProfileLogoUpload }), businessProfile.uploadLogo);
   r.delete('/business-profile/logo', ...tenantScoped('business.update'), businessProfile.removeLogo);
 
+  // ---- Phase 22: Company Letterhead Management — one asset-type route triple per image, same shape as logo above
+  r.get('/business-profile/letterhead/preview', ...tenantScoped('business.view'), businessProfile.previewLetterheadPdf);
+  r.post('/business-profile/letterhead/reset', ...tenantScoped('business.update'), businessProfile.resetLetterhead);
+  const letterheadAssets = [
+    ['background', 'getBackground', 'uploadBackground', 'removeBackground', v.businessProfileBackgroundUpload],
+    ['watermark', 'getWatermark', 'uploadWatermark', 'removeWatermark', v.businessProfileWatermarkUpload],
+    ['signature', 'getSignature', 'uploadSignature', 'removeSignature', v.businessProfileSignatureUpload],
+    ['seal', 'getSeal', 'uploadSeal', 'removeSeal', v.businessProfileSealUpload],
+    ['qr-code', 'getQrCode', 'uploadQrCode', 'removeQrCode', v.businessProfileQrCodeUpload],
+  ];
+  for (const [path, getFn, uploadFn, removeFn, uploadSchema] of letterheadAssets) {
+    r.get(`/business-profile/${path}`, ...tenantScoped('business.view'), businessProfile[getFn]);
+    r.post(`/business-profile/${path}`, ...tenantScoped('business.update'), validate({ body: uploadSchema }), businessProfile[uploadFn]);
+    r.delete(`/business-profile/${path}`, ...tenantScoped('business.update'), businessProfile[removeFn]);
+  }
+
   // ---- products / customers
   const products = createProductController(services);
   r.get('/products', ...tenantScoped('products.view'), validate({ query: listQuery }), products.list);
@@ -151,6 +167,15 @@ export function createV1Router({ container, access, limiters }) {
   r.post('/invoices/:id/cancel', ...tenantScoped('invoices.cancel'), validate({ params: idParams, body: v.invoiceCancel }), invoices.cancel);
   r.get('/invoices/:id/pdf', ...invoiceScoped('invoices.view'), validate({ params: idParams }), invoices.viewPdf);
   r.post('/invoices/:id/pdf', ...tenantScoped('invoices.update'), validate({ params: idParams }), invoices.regeneratePdf);
+
+  // ---- credit/debit notes (Phase 22: the only way to amend an already-ISSUED, immutable invoice)
+  const notes = createCreditDebitNoteController({ creditDebitNoteService: services.creditDebitNoteService });
+  r.get('/invoices/:id/notes', ...tenantScoped('notes.view'), validate({ params: idParams }), notes.listForInvoice);
+  r.post('/invoices/:id/credit-notes', ...tenantScoped('notes.create'), validate({ params: idParams, body: v.creditDebitNoteCreate }), notes.createCreditNote);
+  r.post('/invoices/:id/debit-notes', ...tenantScoped('notes.create'), validate({ params: idParams, body: v.creditDebitNoteCreate }), notes.createDebitNote);
+  r.get('/notes', ...tenantScoped('notes.view'), validate({ query: listQuery.extend({ noteType: z.enum(['CREDIT', 'DEBIT']).optional(), invoiceId: objectIdSchema.optional() }) }), notes.list);
+  r.get('/notes/:id', ...tenantScoped('notes.view'), validate({ params: idParams }), notes.get);
+  r.post('/notes/:id/cancel', ...tenantScoped('notes.cancel'), validate({ params: idParams, body: v.creditDebitNoteCancel }), notes.cancel);
 
   // ---- vendors
   const gstBills = createGSTBillController({ gstBillService: services.gstBillService });

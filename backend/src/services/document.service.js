@@ -23,13 +23,48 @@ const storageKeyFor = (tenantId, invoiceId, documentId) => `tenant/${tenantId}/i
  * explicit regenerate request overwrites that same row in place rather than creating a new one.
  */
 export class DocumentService {
-  constructor({ documentRepo, storageService, pdfService, auditService }) {
-    Object.assign(this, { documentRepo, storageService, pdfService, auditService });
+  constructor({
+    documentRepo, storageService, pdfService, auditService, fileMetadataRepo = null,
+  }) {
+    Object.assign(this, {
+      documentRepo, storageService, pdfService, auditService, fileMetadataRepo,
+    });
+  }
+
+  /**
+   * Phase 22: resolves the invoice's frozen `letterheadSnapshot` (FileMetadata ids only) into actual image
+   * buffers, through the SAME tenant-scoped FileMetadata/StorageService path every other file read uses.
+   * A missing/unreadable asset is simply omitted (returns null for that one field) rather than failing the
+   * whole PDF — a deleted/corrupt letterhead image should never block generating an invoice PDF.
+   */
+  async #resolveLetterhead(ctx, invoice) {
+    const snap = invoice.letterheadSnapshot;
+    if (!snap || !this.fileMetadataRepo) return null;
+    const fetchAsset = async (fileId) => {
+      if (!fileId) return null;
+      try {
+        const meta = await this.fileMetadataRepo.findOneForTenant(ctx.tenantId, fileId);
+        if (!meta) return null;
+        return { buffer: await this.storageService.read(meta.storageKey), mimeType: meta.mimeType };
+      } catch {
+        return null;
+      }
+    };
+    const [logo, background, watermark, signature, seal, qrCode] = await Promise.all([
+      fetchAsset(snap.logoFileId), fetchAsset(snap.backgroundFileId), fetchAsset(snap.watermarkFileId),
+      fetchAsset(snap.signatureFileId), fetchAsset(snap.sealFileId), fetchAsset(snap.qrCodeFileId),
+    ]);
+    return {
+      logo, background, watermark, signature, seal, qrCode,
+      bankDetails: snap.bankDetails, footerText: snap.footerText, declaration: snap.declaration,
+      authorizedSignatoryName: snap.authorizedSignatoryName, authorizedSignatoryDesignation: snap.authorizedSignatoryDesignation,
+    };
   }
 
   /** DRAFT only: always a fresh render, never persisted/versioned. */
   async previewDraft(ctx, invoice) {
-    const buffer = await this.pdfService.generate(invoice);
+    const letterhead = await this.#resolveLetterhead(ctx, invoice);
+    const buffer = await this.pdfService.generate(invoice, letterhead);
     await this.auditService.record(ctx, {
       action: AUDIT_ACTIONS.INVOICE_PDF_GENERATED, resourceType: 'Invoice', resourceId: invoice._id, metadata: { invoiceStatus: invoice.invoiceStatus, persisted: false },
     });
@@ -56,7 +91,8 @@ export class DocumentService {
   }
 
   async #generateAndPersist(ctx, invoice, existing) {
-    const buffer = await this.pdfService.generate(invoice);
+    const letterhead = await this.#resolveLetterhead(ctx, invoice);
+    const buffer = await this.pdfService.generate(invoice, letterhead);
     const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
     const documentId = existing ? String(existing._id) : String(new mongoose.Types.ObjectId());
     const storageKey = storageKeyFor(ctx.tenantId, invoice._id, documentId);

@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import { LoadingState, ErrorState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  LoadingState,
+  ErrorState,
+} from '../../design-system/index.js';
 import { formatDateTime } from '../../utils/format.js';
 
-/** Precise, non-government-filing wording only (spec step 26) — this phase never claims a GST return was
- * filed/submitted, only that the vendor's internal processing/document is or isn't available yet. */
 const PROCESSING_STATUS = {
   NONE: { label: 'Awaiting Vendor Processing', tone: 'neutral' },
   IN_PROGRESS: { label: 'Vendor Processing In Progress', tone: 'info' },
@@ -58,33 +62,37 @@ export default function GstBillingDashboardPage() {
     <>
       <PageHeader title="GST Billing" subtitle="Vendor-processed GST documents for this filing." />
 
-      <section className="card">
+      <Card style={{ marginBottom: '1.25rem' }}>
         <dl className="definition-list">
           <div><dt>Company</dt><dd>{profile?.displayName ?? 'Not set'}</dd></div>
           <div><dt>GSTIN</dt><dd className="mono">{profile?.gstin ?? '—'}</dd></div>
           <div><dt>Filing</dt><dd>{filing.periodLabel ?? filing.periodKey} ({filing.returnType?.replace('_', ' ')})</dd></div>
           <div><dt>Status</dt><dd><span className={`badge badge--${processing.tone}`}>{processing.label}</span></dd></div>
         </dl>
-      </section>
+      </Card>
 
-      <section className="card">
-        <h2>Vendor Final Documents</h2>
-        {finalDocuments.length === 0 && (
-          <p className="muted">
-            No final document available yet.<br />
-            Your GST vendor will upload the final document after completing the processing.
-          </p>
-        )}
-        {finalDocuments.map((d) => (
-          <div key={d.id} className="card placeholder" style={{ marginBottom: '.6rem' }}>
-            <strong style={{ wordBreak: 'break-word' }}>{d.fileName}</strong>
-            <p className="muted">Uploaded by GST Vendor · {formatDateTime(d.uploadedAt)}</p>
-            <div className="toolbar toolbar--tight">
-              <ViewDownloadButtons filingId={id} docId={d.id} fileName={d.fileName} />
+      <Card>
+        <CardHeader title="Vendor Final Documents" />
+        <CardBody>
+          {finalDocuments.length === 0 && (
+            <p className="muted">
+              No final document available yet.<br />
+              Your GST vendor will upload the final document after completing the processing.
+            </p>
+          )}
+          {finalDocuments.map((d) => (
+            <div key={d.id} className="card placeholder" style={{ marginBottom: '.75rem', padding: '1rem 1.25rem' }}>
+              <strong style={{ wordBreak: 'break-word', fontSize: '15px' }}>{d.fileName}</strong>
+              <p className="muted" style={{ margin: '0.25rem 0 0.75rem 0', fontSize: '13px' }}>
+                Uploaded by GST Vendor · {formatDateTime(d.uploadedAt)}
+              </p>
+              <div className="toolbar toolbar--tight">
+                <ViewDownloadButtons filingId={id} docId={d.id} fileName={d.fileName} />
+              </div>
             </div>
-          </div>
-        ))}
-      </section>
+          ))}
+        </CardBody>
+      </Card>
     </>
   );
 }
@@ -113,7 +121,9 @@ function ViewDownloadButtons({ filingId, docId, fileName }) {
       const blob = await fetchBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = fileName; a.click();
+      a.href = url;
+      a.download = fileName;
+      a.click();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
       setNotice(err.message ?? `Could not download ${fileName}`);
@@ -124,7 +134,7 @@ function ViewDownloadButtons({ filingId, docId, fileName }) {
     <>
       <button type="button" className="btn btn--small" onClick={view}>View Document</button>
       <button type="button" className="btn btn--small" onClick={download}>Download</button>
-      {notice && <span className="field__error">{notice}</span>}
+      {notice && <span className="field__error" style={{ marginLeft: '.5rem' }}>{notice}</span>}
     </>
   );
 }

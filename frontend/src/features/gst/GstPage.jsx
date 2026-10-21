@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
 import { api } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import { LoadingState, ErrorState, EmptyState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from '../../design-system/index.js';
 import { useFetch } from '../filings/filingsApi.js';
 
 const PROCESS_STEPS = [
@@ -18,9 +23,6 @@ const PROCESS_STEPS = [
 const STEP_KEYS = ['companyDetails', 'billCreated', 'billUploaded', 'tallyMatched', 'finalDocument'];
 const STEP_LABELS = ['Company', 'Bill', 'Upload', 'Tally', 'Final'];
 
-/** Sentence-case backend status strings get their own badge tone map (StatusBadge's TONES are keyed to
- * SCREAMING_SNAKE_CASE enum values, not these human-readable strings) — the exact status text is never
- * altered, only its visual tone. */
 const STATUS_TONE = {
   'Company Details Pending': 'neutral',
   'Bill Creation Pending': 'neutral',
@@ -41,8 +43,8 @@ const initials = (name) => (name ? name.trim().slice(0, 1).toUpperCase() : '?');
 
 function ProcessOverview() {
   return (
-    <section className="card">
-      <h2>GST Filing Process</h2>
+    <Card style={{ marginBottom: '1.5rem' }}>
+      <h2 style={{ fontSize: '18px', margin: '0 0 1rem 0' }}>GST Filing Process</h2>
       <div className="gst-process">
         {PROCESS_STEPS.map((step, i) => (
           <div className="gst-process__step" key={step.title}>
@@ -52,7 +54,7 @@ function ProcessOverview() {
           </div>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -93,8 +95,10 @@ function FilingCard({ item, logoUrl }) {
     }
   };
 
+  const badgeTone = STATUS_TONE[item.status] ?? 'neutral';
+
   return (
-    <section className="card">
+    <Card style={{ marginBottom: '1.25rem' }}>
       <div className="gst-filing-header">
         <div className="gst-filing-company">
           <span className="gst-filing-avatar" aria-hidden="true">
@@ -107,7 +111,7 @@ function FilingCard({ item, logoUrl }) {
             </p>
           </div>
         </div>
-        <span className={`badge badge--${STATUS_TONE[item.status] ?? 'neutral'}`}>{item.status}</span>
+        <span className={`badge badge--${badgeTone}`}>{item.status}</span>
       </div>
 
       <dl className="gst-filing-info-grid">
@@ -157,7 +161,7 @@ function FilingCard({ item, logoUrl }) {
           <Link to={`/client/gst-filings/${item.filingId}/billing`} className="btn">GST Billing Dashboard</Link>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -195,7 +199,7 @@ export default function GstPage() {
 
       {status === 'ready' && (
         <>
-          <div className="stat-row">
+          <div className="stat-row" style={{ marginBottom: '1.5rem' }}>
             <div className="stat"><span className="stat__icon" aria-hidden="true">◉</span><span className="stat__value">{data.summary.totalFilings}</span><span className="muted">Total Filings</span></div>
             <div className="stat"><span className="stat__icon" aria-hidden="true">◐</span><span className="stat__value">{data.summary.inProgress}</span><span className="muted">In Progress</span></div>
             <div className="stat"><span className="stat__icon" aria-hidden="true">⇄</span><span className="stat__value">{data.summary.tallyMatched}</span><span className="muted">Tally Matched</span></div>
@@ -203,13 +207,13 @@ export default function GstPage() {
           </div>
 
           <h2 className="section-title">Your GST Filings {data.items.length > 0 && <span className="badge badge--neutral">{data.items.length}</span>}</h2>
-          <p className="muted">Track the status of each GST filing.</p>
+          <p className="muted" style={{ marginBottom: '1.25rem' }}>Track the status of each GST filing.</p>
 
           {data.items.length === 0 && (
             <>
               <EmptyState title="No GST filings yet" hint="Create your first GST filing to start the process." />
               {canCreate && (
-                <div className="toolbar">
+                <div className="toolbar" style={{ marginTop: '1rem' }}>
                   <Link to="/client/gst-filings/new" className="btn btn--primary">+ New Filing</Link>
                 </div>
               )}

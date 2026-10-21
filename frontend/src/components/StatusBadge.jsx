@@ -1,3 +1,6 @@
+import React from 'react';
+import { Badge } from '../design-system/index.js';
+
 const TONES = {
   ACTIVE: 'ok', PAID: 'ok', SYNCED: 'ok', FILED: 'ok', ACKNOWLEDGED: 'ok', RESOLVED: 'ok', ISSUED: 'ok', GRANTED: 'ok',
   PENDING: 'warn', DRAFT: 'warn', UNPAID: 'warn', NOT_SYNCED: 'neutral', QUEUED: 'info', SYNCING: 'info', RETRYING: 'warn',
@@ -12,10 +15,12 @@ const TONES = {
   MATCHED: 'ok', FULLY_MATCHED: 'ok', MISMATCH: 'bad', NOT_FOUND: 'warn', DUPLICATE: 'warn',
   PARTIAL_MATCH: 'warn', NOT_MATCHED: 'bad', TALLY_ERROR: 'bad', ERROR: 'bad',
 };
+
 const label = (s) => String(s).replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-/** Status is conveyed by text as well as colour. */
+/** Status is conveyed by readable text as well as semantic colour. */
 export default function StatusBadge({ status }) {
   if (!status) return <span className="muted">—</span>;
-  return <span className={`badge badge--${TONES[status] ?? 'neutral'}`}>{label(status)}</span>;
+  const tone = TONES[status] ?? 'neutral';
+  return <Badge tone={tone}>{label(status)}</Badge>;
 }

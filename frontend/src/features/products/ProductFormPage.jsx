@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { ErrorState, LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  StatusBadge,
+  DefinitionList,
+  DefinitionItem,
+  Button,
+  FormField,
+  ErrorState,
+  LoadingState,
+} from '../../design-system/index.js';
 import { formatMoney } from '../../utils/format.js';
 
 const UNITS = ['NOS', 'PCS', 'KG', 'GRAM', 'LTR', 'MTR', 'BOX', 'SET', 'SERVICE'];
@@ -93,60 +103,70 @@ export default function ProductFormPage() {
     return (
       <>
         <PageHeader title={isNew ? 'New product' : `Edit ${state.product.productName}`} />
-        <form className="card form" onSubmit={onSubmit} noValidate>
-          {notice && <p className="state" role="status">{notice}</p>}
-          <label className="field">
-            <span>Product name *</span>
-            <input value={form.productName} onChange={(e) => set({ productName: e.target.value })} maxLength={200} required />
-            {errors.productName && <span className="field__error">{errors.productName}</span>}
-          </label>
-          <label className="field">
-            <span>Type *</span>
-            <select value={form.type} onChange={(e) => set({ type: e.target.value })}>
-              <option value="PRODUCT">Product</option>
-              <option value="SERVICE">Service</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Description</span>
-            <textarea value={form.description} onChange={(e) => set({ description: e.target.value })} maxLength={2000} rows={3} />
-          </label>
-          <label className="field"><span>SKU</span><input value={form.sku} onChange={(e) => set({ sku: e.target.value })} /></label>
-          <label className="field">
-            <span>HSN/SAC</span>
-            <input value={form.hsnSacCode} onChange={(e) => set({ hsnSacCode: e.target.value })} maxLength={8} />
-            {errors.hsnSacCode && <span className="field__error">{errors.hsnSacCode}</span>}
-          </label>
-          <label className="field">
-            <span>Unit *</span>
-            <select value={form.unit} onChange={(e) => set({ unit: e.target.value })}>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span>Selling price *</span>
-            <input value={form.sellingPrice} onChange={(e) => set({ sellingPrice: e.target.value })} inputMode="decimal" required />
-            {errors.sellingPrice && <span className="field__error">{errors.sellingPrice}</span>}
-          </label>
-          <label className="field">
-            <span>Purchase price</span>
-            <input value={form.purchasePrice} onChange={(e) => set({ purchasePrice: e.target.value })} inputMode="decimal" />
-            {errors.purchasePrice && <span className="field__error">{errors.purchasePrice}</span>}
-          </label>
-          <label className="field field--inline">
-            <input type="checkbox" checked={form.isGstApplicable} onChange={(e) => set({ isGstApplicable: e.target.checked, gstRate: e.target.checked ? form.gstRate : '' })} />
-            <span>GST applicable</span>
-          </label>
-          {form.isGstApplicable && (
-            <label className="field">
-              <span>GST rate (%) *</span>
-              <input type="number" min="0" max="100" value={form.gstRate} onChange={(e) => set({ gstRate: e.target.value })} />
-              {errors.gstRate && <span className="field__error">{errors.gstRate}</span>}
-            </label>
-          )}
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => (isNew ? navigate('/client/products') : setEditing(false))}>Cancel</button>
-            <button type="submit" className="btn btn--primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        <form onSubmit={onSubmit} noValidate>
+          <Card style={{ marginBottom: '1.25rem' }}>
+            <CardHeader title="Product Details" />
+            <CardBody>
+              {notice && <p className="state" role="status">{notice}</p>}
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <FormField label="Product name" required error={errors.productName}>
+                  <input className="input" value={form.productName} onChange={(e) => set({ productName: e.target.value })} maxLength={200} required />
+                </FormField>
+                <FormField label="Type" required>
+                  <select className="select" value={form.type} onChange={(e) => set({ type: e.target.value })}>
+                    <option value="PRODUCT">Product</option>
+                    <option value="SERVICE">Service</option>
+                  </select>
+                </FormField>
+                <FormField label="Unit" required>
+                  <select className="select" value={form.unit} onChange={(e) => set({ unit: e.target.value })}>
+                    {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </FormField>
+                <FormField label="SKU">
+                  <input className="input" value={form.sku} onChange={(e) => set({ sku: e.target.value })} />
+                </FormField>
+                <FormField label="HSN/SAC" error={errors.hsnSacCode}>
+                  <input className="input" value={form.hsnSacCode} onChange={(e) => set({ hsnSacCode: e.target.value })} maxLength={8} />
+                </FormField>
+              </div>
+
+              <FormField label="Description" style={{ marginBottom: '1rem' }}>
+                <textarea className="textarea" value={form.description} onChange={(e) => set({ description: e.target.value })} maxLength={2000} rows={3} />
+              </FormField>
+            </CardBody>
+          </Card>
+
+          <Card style={{ marginBottom: '1.25rem' }}>
+            <CardHeader title="Pricing & Taxes" />
+            <CardBody>
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <FormField label="Selling price" required error={errors.sellingPrice}>
+                  <input className="input" value={form.sellingPrice} onChange={(e) => set({ sellingPrice: e.target.value })} inputMode="decimal" required />
+                </FormField>
+                <FormField label="Purchase price" error={errors.purchasePrice}>
+                  <input className="input" value={form.purchasePrice} onChange={(e) => set({ purchasePrice: e.target.value })} inputMode="decimal" />
+                </FormField>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label className="field field--inline">
+                  <input type="checkbox" checked={form.isGstApplicable} onChange={(e) => set({ isGstApplicable: e.target.checked, gstRate: e.target.checked ? form.gstRate : '' })} />
+                  <span>GST applicable</span>
+                </label>
+              </div>
+
+              {form.isGstApplicable && (
+                <FormField label="GST rate (%)" required error={errors.gstRate}>
+                  <input className="input" type="number" min="0" max="100" value={form.gstRate} onChange={(e) => set({ gstRate: e.target.value })} style={{ maxWidth: '160px' }} />
+                </FormField>
+              )}
+            </CardBody>
+          </Card>
+
+          <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+            <Button onClick={() => (isNew ? navigate('/client/products') : setEditing(false))}>Cancel</Button>
+            <Button type="submit" variant="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>
       </>
@@ -160,24 +180,28 @@ export default function ProductFormPage() {
         title={product.productName}
         subtitle={`${product.productCode} · ${product.type}`}
         actions={(
-          <div className="toolbar">
+          <div className="toolbar" style={{ alignItems: 'center' }}>
             <StatusBadge status={product.status} />
-            {can(user, 'products.update') && product.status !== 'ARCHIVED' && <button type="button" className="btn" onClick={() => setEditing(true)}>Edit</button>}
+            {can(user, 'products.update') && product.status !== 'ARCHIVED' && (
+              <Button onClick={() => setEditing(true)}>Edit</Button>
+            )}
           </div>
         )}
       />
       {notice && <p className="state" role="status">{notice}</p>}
-      <section className="card">
-        <dl className="definition-list">
-          <div><dt>SKU</dt><dd className="mono">{product.sku ?? '—'}</dd></div>
-          <div><dt>HSN/SAC</dt><dd className="mono">{product.hsnSacCode ?? '—'}</dd></div>
-          <div><dt>Unit</dt><dd>{product.unit}</dd></div>
-          <div><dt>Selling price</dt><dd>{formatMoney(product.sellingPrice)}</dd></div>
-          <div><dt>Purchase price</dt><dd>{formatMoney(product.purchasePrice)}</dd></div>
-          <div><dt>GST</dt><dd>{product.isGstApplicable ? `${product.gstRate}%` : 'Not applicable'}</dd></div>
-          <div><dt>Description</dt><dd>{product.description ?? '—'}</dd></div>
-        </dl>
-      </section>
+      <Card>
+        <CardBody>
+          <DefinitionList columns={4}>
+            <DefinitionItem label="SKU" value={product.sku} mono />
+            <DefinitionItem label="HSN/SAC" value={product.hsnSacCode} mono />
+            <DefinitionItem label="Unit" value={product.unit} />
+            <DefinitionItem label="Selling price" value={formatMoney(product.sellingPrice)} />
+            <DefinitionItem label="Purchase price" value={formatMoney(product.purchasePrice)} />
+            <DefinitionItem label="GST" value={product.isGstApplicable ? `${product.gstRate}%` : 'Not applicable'} />
+            <DefinitionItem label="Description" value={product.description} />
+          </DefinitionList>
+        </CardBody>
+      </Card>
     </>
   );
 }

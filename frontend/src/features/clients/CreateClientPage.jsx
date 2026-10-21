@@ -1,7 +1,14 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  FormField,
+} from '../../design-system/index.js';
 
 const initial = {
   businessName: '', legalName: '', gstin: '', pan: '', email: '', phone: '',
@@ -9,7 +16,6 @@ const initial = {
   adminName: '', adminEmail: '', adminPassword: '',
 };
 
-/** Client-side checks are for UX only; the server remains the single source of truth. */
 function validate(form) {
   const errors = {};
   if (!form.businessName.trim()) errors.businessName = 'Business name is required';
@@ -60,79 +66,87 @@ export default function CreateClientPage() {
   return (
     <>
       <PageHeader title="New client" subtitle="Onboard a business onto the platform." />
-      <form className="card form" onSubmit={onSubmit} noValidate>
-        {serverError && <p className="state state--error" role="alert">{serverError}</p>}
+      <form onSubmit={onSubmit} noValidate>
+        {serverError && <p className="state state--error" role="alert" style={{ marginBottom: '1.25rem' }}>{serverError}</p>}
 
-        <fieldset>
-          <legend>Business info</legend>
-          <label className="field">
-            <span>Business name *</span>
-            <input value={form.businessName} onChange={(e) => set({ businessName: e.target.value })} maxLength={200} required />
-            {errors.businessName && <span className="field__error">{errors.businessName}</span>}
-          </label>
-          <label className="field">
-            <span>Legal name</span>
-            <input value={form.legalName} onChange={(e) => set({ legalName: e.target.value })} maxLength={200} />
-          </label>
-        </fieldset>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Business info" />
+          <CardBody>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+              <FormField label="Business name" required error={errors.businessName}>
+                <input className="input" value={form.businessName} onChange={(e) => set({ businessName: e.target.value })} maxLength={200} required />
+              </FormField>
+              <FormField label="Legal name">
+                <input className="input" value={form.legalName} onChange={(e) => set({ legalName: e.target.value })} maxLength={200} />
+              </FormField>
+            </div>
+          </CardBody>
+        </Card>
 
-        <fieldset>
-          <legend>Tax info</legend>
-          <label className="field">
-            <span>GSTIN</span>
-            <input value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} maxLength={15} />
-            {errors.gstin && <span className="field__error">{errors.gstin}</span>}
-            <span className="muted">Format is validated only — this is not a government verification.</span>
-          </label>
-          <label className="field">
-            <span>PAN</span>
-            <input value={form.pan} onChange={(e) => set({ pan: e.target.value.toUpperCase() })} maxLength={10} />
-            {errors.pan && <span className="field__error">{errors.pan}</span>}
-          </label>
-        </fieldset>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Tax info" />
+          <CardBody>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+              <FormField label="GSTIN" hint="Format is validated only — this is not a government verification." error={errors.gstin}>
+                <input className="input" value={form.gstin} onChange={(e) => set({ gstin: e.target.value.toUpperCase() })} maxLength={15} />
+              </FormField>
+              <FormField label="PAN" error={errors.pan}>
+                <input className="input" value={form.pan} onChange={(e) => set({ pan: e.target.value.toUpperCase() })} maxLength={10} />
+              </FormField>
+            </div>
+          </CardBody>
+        </Card>
 
-        <fieldset>
-          <legend>Contact</legend>
-          <label className="field">
-            <span>Email</span>
-            <input type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} />
-          </label>
-          <label className="field">
-            <span>Phone</span>
-            <input value={form.phone} onChange={(e) => set({ phone: e.target.value })} maxLength={20} />
-          </label>
-        </fieldset>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Contact & Address" />
+          <CardBody>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <FormField label="Email">
+                <input className="input" type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} />
+              </FormField>
+              <FormField label="Phone">
+                <input className="input" value={form.phone} onChange={(e) => set({ phone: e.target.value })} maxLength={20} />
+              </FormField>
+            </div>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <FormField label="Address line 1">
+                <input className="input" value={form.address.line1} onChange={(e) => setAddr({ line1: e.target.value })} />
+              </FormField>
+              <FormField label="City">
+                <input className="input" value={form.address.city} onChange={(e) => setAddr({ city: e.target.value })} />
+              </FormField>
+              <FormField label="State">
+                <input className="input" value={form.address.state} onChange={(e) => setAddr({ state: e.target.value })} />
+              </FormField>
+              <FormField label="Pincode">
+                <input className="input" value={form.address.pincode} onChange={(e) => setAddr({ pincode: e.target.value })} maxLength={6} />
+              </FormField>
+            </div>
+          </CardBody>
+        </Card>
 
-        <fieldset>
-          <legend>Address</legend>
-          <label className="field"><span>Address line 1</span><input value={form.address.line1} onChange={(e) => setAddr({ line1: e.target.value })} /></label>
-          <label className="field"><span>City</span><input value={form.address.city} onChange={(e) => setAddr({ city: e.target.value })} /></label>
-          <label className="field"><span>State</span><input value={form.address.state} onChange={(e) => setAddr({ state: e.target.value })} /></label>
-          <label className="field"><span>Pincode</span><input value={form.address.pincode} onChange={(e) => setAddr({ pincode: e.target.value })} maxLength={6} /></label>
-        </fieldset>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Initial Client Admin (optional)" />
+          <CardBody>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+              <FormField label="Name" error={errors.adminName}>
+                <input className="input" value={form.adminName} onChange={(e) => set({ adminName: e.target.value })} />
+              </FormField>
+              <FormField label="Email">
+                <input className="input" type="email" value={form.adminEmail} onChange={(e) => set({ adminEmail: e.target.value })} />
+              </FormField>
+              <FormField label="Initial password" hint="The admin account is created PENDING and must be activated before it can sign in." error={errors.adminPassword}>
+                <input className="input" type="password" value={form.adminPassword} onChange={(e) => set({ adminPassword: e.target.value })} autoComplete="new-password" />
+              </FormField>
+            </div>
+          </CardBody>
+        </Card>
 
-        <fieldset>
-          <legend>Initial Client Admin (optional)</legend>
-          <label className="field">
-            <span>Name</span>
-            <input value={form.adminName} onChange={(e) => set({ adminName: e.target.value })} />
-            {errors.adminName && <span className="field__error">{errors.adminName}</span>}
-          </label>
-          <label className="field">
-            <span>Email</span>
-            <input type="email" value={form.adminEmail} onChange={(e) => set({ adminEmail: e.target.value })} />
-          </label>
-          <label className="field">
-            <span>Initial password</span>
-            <input type="password" value={form.adminPassword} onChange={(e) => set({ adminPassword: e.target.value })} autoComplete="new-password" />
-            {errors.adminPassword && <span className="field__error">{errors.adminPassword}</span>}
-            <span className="muted">The admin account is created PENDING and must be activated before it can sign in.</span>
-          </label>
-        </fieldset>
-
-        <div className="dialog__actions">
-          <button type="button" className="btn" onClick={() => navigate('/master/clients')}>Cancel</button>
-          <button type="submit" className="btn btn--primary" disabled={submitting}>{submitting ? 'Creating…' : 'Create client'}</button>
+        <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+          <Button onClick={() => navigate('/master/clients')}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
+            {submitting ? 'Creating…' : 'Create client'}
+          </Button>
         </div>
       </form>
     </>

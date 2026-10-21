@@ -4,6 +4,20 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import ConfirmDialog from '../../components/ConfirmDialog.jsx';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardBody,
+  Button,
+  FormField,
+  TextInput,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeaderCell,
+  TableCell,
+} from '../../design-system/index.js';
 
 const SCOPES = ['tally:company:read', 'tally:customer:read', 'tally:product:read', 'tally:invoice:read', 'tally:sync'];
 
@@ -72,92 +86,132 @@ export default function TallyApiKeysSection() {
   };
 
   return (
-    <section className="card">
-      <h2>Tally API keys</h2>
-      <p className="muted">
-        Issue a key so an external Tally/TDL integration can call this ERP directly (Tally → ERP), separate from the Tally connection configured above (ERP → Tally).
-        See the integration handoff document for endpoint details.
-      </p>
-      {error && <p className="state state--error" role="alert">{error}</p>}
+    <Card>
+      <CardHeader>
+        <CardTitle>Tally API keys</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <p className="muted" style={{ margin: '0 0 1.25rem', lineHeight: 1.5 }}>
+          Issue a key so an external Tally/TDL integration can call this ERP directly (Tally → ERP), separate from the Tally connection configured above (ERP → Tally).
+          See the integration handoff document for endpoint details.
+        </p>
+        {error && <p className="state state--error" role="alert" style={{ marginBottom: '1.25rem' }}>{error}</p>}
 
-      {revealedKey && (
-        <div className="state" role="alert">
-          <p><strong>{revealedKey.name}</strong> — copy this key now. It will not be shown again.</p>
-          <code style={{ wordBreak: 'break-all', userSelect: 'all' }}>{revealedKey.key}</code>
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => setRevealedKey(null)}>I&rsquo;ve stored it securely</button>
+        {revealedKey && (
+          <div className="state" role="alert" style={{ marginBottom: '1.5rem', background: 'var(--brand-surface)', borderColor: 'var(--brand-border)', borderRadius: 'var(--radius-md)' }}>
+            <p style={{ margin: '0 0 0.5rem', color: 'var(--brand-dark)' }}>
+              <strong>{revealedKey.name}</strong> — copy this key now. It will not be shown again.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <code style={{ wordBreak: 'break-all', userSelect: 'all', background: '#FFFFFF', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', flex: 1, minWidth: '240px' }}>
+                {revealedKey.key}
+              </code>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => navigator.clipboard?.writeText(revealedKey.key).catch(() => {})}
+              >
+                Copy
+              </Button>
+            </div>
+            <div>
+              <Button type="button" variant="primary" size="sm" onClick={() => setRevealedKey(null)}>
+                I&rsquo;ve stored it securely
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {keys === null && !error && <p className="muted">Loading…</p>}
-      {keys && keys.length === 0 && <p className="muted">No API keys yet.</p>}
-      {keys && keys.length > 0 && (
-        <table className="table">
-          <thead>
-            <tr><th>Name</th><th>Prefix</th><th>Status</th><th>Scopes</th><th>Last used</th><th>Expires</th>{(canRevoke || canRotate) && <th>Actions</th>}</tr>
-          </thead>
-          <tbody>
-            {keys.map((k) => (
-              <tr key={k.id}>
-                <td>{k.name}</td>
-                <td><code>{k.keyPrefix}…</code></td>
-                <td><StatusBadge status={k.status} /></td>
-                <td>{k.scopes.join(', ') || '—'}</td>
-                <td>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</td>
-                <td>{k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : 'Never'}</td>
-                {(canRevoke || canRotate) && (
-                  <td>
-                    {k.status === 'ACTIVE' && canRotate && (
-                      <button type="button" className="btn btn--small" onClick={() => setConfirmAction({ type: 'rotate', id: k.id, name: k.name })}>Rotate</button>
-                    )}
-                    {k.status === 'ACTIVE' && canRevoke && (
-                      <button type="button" className="btn btn--small btn--danger" onClick={() => setConfirmAction({ type: 'revoke', id: k.id, name: k.name })}>Revoke</button>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        {keys === null && !error && <p className="muted">Loading…</p>}
+        {keys && keys.length === 0 && <p className="muted">No API keys yet.</p>}
+        {keys && keys.length > 0 && (
+          <Table className="table">
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Name</TableHeaderCell>
+                <TableHeaderCell>Prefix</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Scopes</TableHeaderCell>
+                <TableHeaderCell>Last used</TableHeaderCell>
+                <TableHeaderCell>Expires</TableHeaderCell>
+                {(canRevoke || canRotate) && <TableHeaderCell>Actions</TableHeaderCell>}
+              </TableRow>
+            </TableHead>
+            <tbody>
+              {keys.map((k) => (
+                <TableRow key={k.id}>
+                  <TableCell style={{ fontWeight: 600 }}>{k.name}</TableCell>
+                  <TableCell><code>{k.keyPrefix}…</code></TableCell>
+                  <TableCell><StatusBadge status={k.status} /></TableCell>
+                  <TableCell>{k.scopes.join(', ') || '—'}</TableCell>
+                  <TableCell>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'Never'}</TableCell>
+                  <TableCell>{k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : 'Never'}</TableCell>
+                  {(canRevoke || canRotate) && (
+                    <TableCell>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {k.status === 'ACTIVE' && canRotate && (
+                          <Button type="button" variant="outline" size="sm" className="btn btn--small" onClick={() => setConfirmAction({ type: 'rotate', id: k.id, name: k.name })}>
+                            Rotate
+                          </Button>
+                        )}
+                        {k.status === 'ACTIVE' && canRevoke && (
+                          <Button type="button" variant="danger" size="sm" className="btn btn--small btn--danger" onClick={() => setConfirmAction({ type: 'revoke', id: k.id, name: k.name })}>
+                            Revoke
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </tbody>
+          </Table>
+        )}
 
-      {canCreate && (
-        <form onSubmit={create} style={{ marginTop: '1rem' }}>
-          <h3>Create a new key</h3>
-          <label className="field">
-            <span>Name *</span>
-            <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={120} required placeholder="e.g. Tally TDL — Mumbai office" />
-          </label>
-          <fieldset className="field">
-            <legend>Scopes</legend>
-            {SCOPES.map((scope) => (
-              <label key={scope} style={{ display: 'block' }}>
-                <input type="checkbox" checked={form.scopes.includes(scope)} onChange={() => toggleScope(scope)} /> {scope}
-              </label>
-            ))}
-          </fieldset>
-          <label className="field">
-            <span>Expires (optional)</span>
-            <input type="date" value={form.expiresAt} onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))} />
-          </label>
-          <div className="dialog__actions">
-            <button type="submit" className="btn btn--primary" disabled={creating || form.scopes.length === 0}>{creating ? 'Creating…' : 'Create API key'}</button>
-          </div>
-        </form>
-      )}
+        {canCreate && (
+          <form onSubmit={create} style={{ marginTop: '1.75rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem', display: 'grid', gap: '1.25rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--ink)' }}>Create a new key</h3>
+            <FormField label="Name *">
+              <TextInput type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={120} required placeholder="e.g. Tally TDL — Mumbai office" />
+            </FormField>
 
-      <ConfirmDialog
-        open={Boolean(confirmAction)}
-        title={confirmAction?.type === 'revoke' ? 'Revoke API key?' : 'Rotate API key?'}
-        message={confirmAction?.type === 'revoke'
-          ? `"${confirmAction?.name}" will stop working immediately. Any integration using it must be updated with a new key.`
-          : `A new secret will be generated for "${confirmAction?.name}". The current secret will stop working immediately.`}
-        confirmLabel={confirmAction?.type === 'revoke' ? 'Revoke' : 'Rotate'}
-        danger={confirmAction?.type === 'revoke'}
-        onConfirm={runConfirmedAction}
-        onCancel={() => setConfirmAction(null)}
-      />
-    </section>
+            <fieldset style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+              <legend style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink)', padding: '0 0.5rem' }}>Scopes</legend>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.625rem' }}>
+                {SCOPES.map((scope) => (
+                  <label key={scope} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                    <input type="checkbox" checked={form.scopes.includes(scope)} onChange={() => toggleScope(scope)} />
+                    <code>{scope}</code>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <FormField label="Expires (optional)">
+              <TextInput type="date" value={form.expiresAt} onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))} />
+            </FormField>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button type="submit" variant="primary" disabled={creating || form.scopes.length === 0}>
+                {creating ? 'Creating…' : 'Create API key'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        <ConfirmDialog
+          open={Boolean(confirmAction)}
+          title={confirmAction?.type === 'revoke' ? 'Revoke API key?' : 'Rotate API key?'}
+          message={confirmAction?.type === 'revoke'
+            ? `"${confirmAction?.name}" will stop working immediately. Any integration using it must be updated with a new key.`
+            : `A new secret will be generated for "${confirmAction?.name}". The current secret will stop working immediately.`}
+          confirmLabel={confirmAction?.type === 'revoke' ? 'Revoke' : 'Rotate'}
+          danger={confirmAction?.type === 'revoke'}
+          onConfirm={runConfirmedAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      </CardBody>
+    </Card>
   );
 }

@@ -1,9 +1,24 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api, adminTenantHeaders } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { ErrorState, LoadingState, EmptyState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  StatusBadge,
+  DefinitionList,
+  DefinitionItem,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeaderCell,
+  TableCell,
+  ErrorState,
+  LoadingState,
+  EmptyState,
+} from '../../design-system/index.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
@@ -24,21 +39,27 @@ function BillForm({ bill, onSave }) {
     } catch (err) { setError(err.message ?? 'Could not save'); } finally { setBusy(false); }
   };
   return (
-    <form className="card" onSubmit={save}>
-      <h2>Bill details</h2>
-      {error && <p className="state state--error" role="alert">{error}</p>}
-      <label className="field"><span>Bill number</span><input value={form.billNumber} onChange={set('billNumber')} maxLength={100} /></label>
-      <label className="field"><span>Bill date</span><input type="date" value={form.billDate ? String(form.billDate).slice(0, 10) : ''} onChange={set('billDate')} /></label>
-      <label className="field"><span>Vendor name</span><input value={form.vendorName} onChange={set('vendorName')} maxLength={200} /></label>
-      <label className="field"><span>Vendor GSTIN</span><input value={form.vendorGSTIN} onChange={set('vendorGSTIN')} maxLength={15} /></label>
-      <label className="field"><span>Amount</span><input value={form.amount} onChange={set('amount')} /></label>
-      <label className="field"><span>Taxable amount</span><input value={form.taxableAmount} onChange={set('taxableAmount')} /></label>
-      <label className="field"><span>CGST</span><input value={form.cgst} onChange={set('cgst')} /></label>
-      <label className="field"><span>SGST</span><input value={form.sgst} onChange={set('sgst')} /></label>
-      <label className="field"><span>IGST</span><input value={form.igst} onChange={set('igst')} /></label>
-      <label className="field"><span>Notes</span><textarea rows={3} value={form.notes} onChange={set('notes')} maxLength={2000} /></label>
-      <button type="submit" className="btn btn--primary" disabled={busy}>Save draft</button>
-    </form>
+    <Card style={{ marginBottom: '1.25rem' }}>
+      <form onSubmit={save}>
+        <CardHeader title="Bill details" />
+        <CardBody>
+          {error && <p className="state state--error" role="alert">{error}</p>}
+          <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            <label className="field"><span>Bill number</span><input className="input" value={form.billNumber} onChange={set('billNumber')} maxLength={100} /></label>
+            <label className="field"><span>Bill date</span><input className="input" type="date" value={form.billDate ? String(form.billDate).slice(0, 10) : ''} onChange={set('billDate')} /></label>
+            <label className="field"><span>Vendor name</span><input className="input" value={form.vendorName} onChange={set('vendorName')} maxLength={200} /></label>
+            <label className="field"><span>Vendor GSTIN</span><input className="input" value={form.vendorGSTIN} onChange={set('vendorGSTIN')} maxLength={15} /></label>
+            <label className="field"><span>Amount</span><input className="input" value={form.amount} onChange={set('amount')} /></label>
+            <label className="field"><span>Taxable amount</span><input className="input" value={form.taxableAmount} onChange={set('taxableAmount')} /></label>
+            <label className="field"><span>CGST</span><input className="input" value={form.cgst} onChange={set('cgst')} /></label>
+            <label className="field"><span>SGST</span><input className="input" value={form.sgst} onChange={set('sgst')} /></label>
+            <label className="field"><span>IGST</span><input className="input" value={form.igst} onChange={set('igst')} /></label>
+          </div>
+          <label className="field" style={{ marginBottom: '1.25rem' }}><span>Notes</span><textarea className="textarea" rows={3} value={form.notes} onChange={set('notes')} maxLength={2000} /></label>
+          <Button type="submit" variant="primary" disabled={busy}>Save draft</Button>
+        </CardBody>
+      </form>
+    </Card>
   );
 }
 
@@ -57,27 +78,29 @@ function DocumentsPanel({ bill, canUpload, canView, onUploaded, reqOpts }) {
     } catch (err) { setError(err.message ?? 'Upload failed'); } finally { setBusy(false); if (inputRef.current) inputRef.current.value = ''; }
   };
   return (
-    <section className="card">
-      <h2>Documents</h2>
-      {error && <p className="state state--error" role="alert">{error}</p>}
-      {(!bill.documents || bill.documents.length === 0) && <EmptyState title="No documents uploaded yet" />}
-      {bill.documents?.length > 0 && (
-        <ul className="link-list">
-          {bill.documents.map((d) => (
-            <li key={d.id}>
-              {canView ? <a href={`/api/v1/bills/${bill._id}/documents/${d.id}`} target="_blank" rel="noreferrer">{d.fileName}</a> : d.fileName}
-              {' '}<span className="muted">({Math.round((d.size ?? 0) / 1024)} KB, {formatDateTime(d.uploadedAt)})</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {canUpload && bill.status === 'DRAFT' && (
-        <label className="field">
-          <span>Upload bill / supporting document (PDF, JPEG, PNG, WEBP — max 5MB each)</span>
-          <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={busy} onChange={upload} />
-        </label>
-      )}
-    </section>
+    <Card style={{ marginBottom: '1.25rem' }}>
+      <CardHeader title="Documents" />
+      <CardBody>
+        {error && <p className="state state--error" role="alert">{error}</p>}
+        {(!bill.documents || bill.documents.length === 0) && <EmptyState title="No documents uploaded yet" />}
+        {bill.documents?.length > 0 && (
+          <ul className="link-list" style={{ marginBottom: '1rem' }}>
+            {bill.documents.map((d) => (
+              <li key={d.id}>
+                {canView ? <a href={`/api/v1/bills/${bill._id}/documents/${d.id}`} target="_blank" rel="noreferrer">{d.fileName}</a> : d.fileName}
+                {' '}<span className="muted">({Math.round((d.size ?? 0) / 1024)} KB, {formatDateTime(d.uploadedAt)})</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {canUpload && bill.status === 'DRAFT' && (
+          <label className="field">
+            <span>Upload bill / supporting document (PDF, JPEG, PNG, WEBP — max 5MB each)</span>
+            <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={busy} onChange={upload} />
+          </label>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -120,86 +143,128 @@ export default function BillDetailPage() {
       {notice && <p className="state" role="status">{notice}</p>}
 
       {bill.status === 'FAILED' && bill.tallyReadinessIssues?.length > 0 && (
-        <section className="card">
-          <h2>Why this bill can&apos;t proceed to Tally yet</h2>
-          <ul className="link-list">{bill.tallyReadinessIssues.map((i) => <li key={i}>{i}</li>)}</ul>
-        </section>
+        <Card style={{ marginBottom: '1.25rem', borderColor: 'var(--bad)' }}>
+          <CardHeader title="Why this bill can't proceed to Tally yet" />
+          <CardBody>
+            <ul className="link-list">{bill.tallyReadinessIssues.map((i) => <li key={i}>{i}</li>)}</ul>
+          </CardBody>
+        </Card>
       )}
       {bill.status === 'REJECTED' && bill.rejectionReason && (
-        <section className="card"><h2>Rejection reason</h2><p>{bill.rejectionReason}</p></section>
+        <Card style={{ marginBottom: '1.25rem', borderColor: 'var(--bad)' }}>
+          <CardHeader title="Rejection reason" />
+          <CardBody><p>{bill.rejectionReason}</p></CardBody>
+        </Card>
       )}
       {bill.tallyFailureReason && (
-        <section className="card"><h2>Tally failure reason</h2><p>{bill.tallyFailureReason}</p></section>
+        <Card style={{ marginBottom: '1.25rem', borderColor: 'var(--bad)' }}>
+          <CardHeader title="Tally failure reason" />
+          <CardBody><p>{bill.tallyFailureReason}</p></CardBody>
+        </Card>
       )}
 
-      <section className="card">
-        <h2>Workflow actions</h2>
-        <div className="toolbar">
-          {bill.status === 'DRAFT' && canSubmit && (
-            <button type="button" className="btn btn--primary" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/submit`, undefined, reqOpts), 'Bill submitted for review')}>Submit bill</button>
-          )}
-          {['SUBMITTED', 'UNDER_REVIEW'].includes(bill.status) && canReview && (
-            <button type="button" className="btn btn--primary" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/review`, undefined, reqOpts), 'Bill reviewed')}>Accept / move to Tally</button>
-          )}
-          {['SUBMITTED', 'UNDER_REVIEW'].includes(bill.status) && canReject && (
-            <span className="toolbar">
-              <input placeholder="Rejection reason (required)" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
-              <button type="button" className="btn btn--danger" disabled={busy || !rejectReason.trim()} onClick={() => run(() => api.post(`/bills/${id}/reject`, { reason: rejectReason }, reqOpts), 'Bill rejected')}>Reject</button>
-            </span>
-          )}
-          {bill.tallyStatus === 'QUEUED' && canTallyManage && (
-            <button type="button" className="btn" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/tally/processing`, undefined, reqOpts), 'Marked as processing in Tally')}>Start Tally processing</button>
-          )}
-          {bill.tallyStatus === 'PROCESSING' && canTallyManage && (
-            <span className="toolbar">
-              <input placeholder="Tally voucher reference" value={tallyReference} onChange={(e) => setTallyReference(e.target.value)} />
-              <button type="button" className="btn btn--primary" disabled={busy || !tallyReference.trim()} onClick={() => run(() => api.post(`/bills/${id}/tally/synced`, { tallyReference }, reqOpts), 'Marked synced to Tally')}>Mark synced</button>
-              <input placeholder="Failure reason" value={failureReason} onChange={(e) => setFailureReason(e.target.value)} />
-              <button type="button" className="btn btn--danger" disabled={busy || !failureReason.trim()} onClick={() => run(() => api.post(`/bills/${id}/tally/failed`, { reason: failureReason }, reqOpts), 'Tally failure recorded')}>Mark failed</button>
-            </span>
-          )}
-          {bill.tallyStatus === 'FAILED' && canTallyManage && (
-            <button type="button" className="btn" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/tally/retry`, undefined, reqOpts), 'Re-queued for Tally')}>Retry</button>
-          )}
-          {bill.status === 'ACCOUNTING_IN_PROGRESS' && canTallyManage && (
-            <button type="button" className="btn btn--primary" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/complete`, undefined, reqOpts), 'Bill marked completed')}>Mark completed</button>
-          )}
-          {!['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'ACCOUNTING_IN_PROGRESS'].includes(bill.status) && bill.tallyStatus !== 'QUEUED' && bill.tallyStatus !== 'PROCESSING' && bill.tallyStatus !== 'FAILED' && (
-            <p className="muted">No action available for the current status.</p>
-          )}
-        </div>
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Workflow actions" />
+        <CardBody>
+          <div className="toolbar" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
+            {bill.status === 'DRAFT' && canSubmit && (
+              <Button variant="primary" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/submit`, undefined, reqOpts), 'Bill submitted for review')}>
+                Submit bill
+              </Button>
+            )}
+            {['SUBMITTED', 'UNDER_REVIEW'].includes(bill.status) && canReview && (
+              <Button variant="primary" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/review`, undefined, reqOpts), 'Bill reviewed')}>
+                Accept / move to Tally
+              </Button>
+            )}
+            {['SUBMITTED', 'UNDER_REVIEW'].includes(bill.status) && canReject && (
+              <span className="toolbar" style={{ gap: '0.5rem' }}>
+                <input className="input" placeholder="Rejection reason (required)" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+                <Button variant="danger" disabled={busy || !rejectReason.trim()} onClick={() => run(() => api.post(`/bills/${id}/reject`, { reason: rejectReason }, reqOpts), 'Bill rejected')}>
+                  Reject
+                </Button>
+              </span>
+            )}
+            {bill.tallyStatus === 'QUEUED' && canTallyManage && (
+              <Button disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/tally/processing`, undefined, reqOpts), 'Marked as processing in Tally')}>
+                Start Tally processing
+              </Button>
+            )}
+            {bill.tallyStatus === 'PROCESSING' && canTallyManage && (
+              <span className="toolbar" style={{ gap: '0.5rem' }}>
+                <input className="input" placeholder="Tally voucher reference" value={tallyReference} onChange={(e) => setTallyReference(e.target.value)} />
+                <Button variant="primary" disabled={busy || !tallyReference.trim()} onClick={() => run(() => api.post(`/bills/${id}/tally/synced`, { tallyReference }, reqOpts), 'Marked synced to Tally')}>
+                  Mark synced
+                </Button>
+                <input className="input" placeholder="Failure reason" value={failureReason} onChange={(e) => setFailureReason(e.target.value)} />
+                <Button variant="danger" disabled={busy || !failureReason.trim()} onClick={() => run(() => api.post(`/bills/${id}/tally/failed`, { reason: failureReason }, reqOpts), 'Tally failure recorded')}>
+                  Mark failed
+                </Button>
+              </span>
+            )}
+            {bill.tallyStatus === 'FAILED' && canTallyManage && (
+              <Button disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/tally/retry`, undefined, reqOpts), 'Re-queued for Tally')}>
+                Retry
+              </Button>
+            )}
+            {bill.status === 'ACCOUNTING_IN_PROGRESS' && canTallyManage && (
+              <Button variant="primary" disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/complete`, undefined, reqOpts), 'Bill marked completed')}>
+                Mark completed
+              </Button>
+            )}
+            {!['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'ACCOUNTING_IN_PROGRESS'].includes(bill.status) && bill.tallyStatus !== 'QUEUED' && bill.tallyStatus !== 'PROCESSING' && bill.tallyStatus !== 'FAILED' && (
+              <p className="muted">No action available for the current status.</p>
+            )}
+          </div>
+        </CardBody>
+      </Card>
 
       {bill.status === 'DRAFT' && canUpdate && <BillForm bill={bill} onSave={async (patch) => { await api.patch(`/bills/${id}`, patch, reqOpts); await reload(); }} />}
       {bill.status !== 'DRAFT' && (
-        <section className="card">
-          <h2>Bill details</h2>
-          <dl className="definition-list">
-            <div><dt>Bill number</dt><dd>{bill.billNumber ?? '—'}</dd></div>
-            <div><dt>Bill date</dt><dd>{bill.billDate ? formatDate(bill.billDate) : '—'}</dd></div>
-            <div><dt>Vendor</dt><dd>{bill.vendorName ?? '—'}</dd></div>
-            <div><dt>Vendor GSTIN</dt><dd>{bill.vendorGSTIN ?? '—'}</dd></div>
-            <div><dt>Amount</dt><dd>{bill.amount ?? '—'}</dd></div>
-          </dl>
-        </section>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Bill details" />
+          <CardBody>
+            <DefinitionList>
+              <DefinitionItem label="Bill number" value={bill.billNumber} mono />
+              <DefinitionItem label="Bill date" value={bill.billDate ? formatDate(bill.billDate) : '—'} />
+              <DefinitionItem label="Vendor" value={bill.vendorName} />
+              <DefinitionItem label="Vendor GSTIN" value={bill.vendorGSTIN} mono />
+              <DefinitionItem label="Amount" value={bill.amount} />
+            </DefinitionList>
+          </CardBody>
+        </Card>
       )}
 
       <DocumentsPanel bill={bill} canUpload={canUpload} canView={canViewDocs} onUploaded={reload} reqOpts={reqOpts} />
 
-      <section className="card">
-        <h2>Status timeline</h2>
-        {(!bill.history || bill.history.length === 0) && <EmptyState title="No status changes yet" />}
-        {bill.history?.length > 0 && (
-          <table className="data-table">
-            <thead><tr><th>From</th><th>To</th><th>When</th><th>Note</th></tr></thead>
-            <tbody>
-              {bill.history.map((hst, idx) => (
-                <tr key={idx}><td>{hst.previousStatus ?? '—'}</td><td>{hst.newStatus}</td><td>{formatDateTime(hst.timestamp)}</td><td>{hst.note ?? '—'}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Status timeline" />
+        <CardBody>
+          {(!bill.history || bill.history.length === 0) && <EmptyState title="No status changes yet" />}
+          {bill.history?.length > 0 && (
+            <Table caption="Bill status history">
+              <TableHead>
+                <TableRow hover={false}>
+                  <TableHeaderCell>From</TableHeaderCell>
+                  <TableHeaderCell>To</TableHeaderCell>
+                  <TableHeaderCell>When</TableHeaderCell>
+                  <TableHeaderCell>Note</TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <tbody>
+                {bill.history.map((hst, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>{hst.previousStatus ?? '—'}</TableCell>
+                    <TableCell><StatusBadge status={hst.newStatus} /></TableCell>
+                    <TableCell>{formatDateTime(hst.timestamp)}</TableCell>
+                    <TableCell>{hst.note ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </CardBody>
+      </Card>
     </>
   );
 }

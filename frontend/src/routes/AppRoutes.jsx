@@ -20,10 +20,14 @@ import InvoiceDetailPage from '../features/invoices/InvoiceDetailPage.jsx';
 import GstPage from '../features/gst/GstPage.jsx';
 import TallyPage from '../features/tally/TallyPage.jsx';
 import AuditLogsPage from '../features/audit/AuditLogsPage.jsx';
-import {
-  VendorClientsPage, VendorClientDetailPage, VendorInvoiceDetailPage,
-  VendorsAdminPage, VendorDetailPage, CreateVendorPage, ClientGstVendorPage, VendorGstBillsPage,
-} from '../features/vendors/VendorsPages.jsx';
+import VendorClientsPage from '../features/vendors/VendorClientsPage.jsx';
+import VendorClientDetailPage from '../features/vendors/VendorClientDetailPage.jsx';
+import VendorInvoiceDetailPage from '../features/vendors/VendorInvoiceDetailPage.jsx';
+import VendorsAdminPage from '../features/vendors/VendorsAdminPage.jsx';
+import VendorDetailPage from '../features/vendors/VendorDetailPage.jsx';
+import CreateVendorPage from '../features/vendors/CreateVendorPage.jsx';
+import ClientGstVendorPage from '../features/vendors/ClientGstVendorPage.jsx';
+import VendorGstBillsPage from '../features/vendors/VendorGstBillsPage.jsx';
 import FilingListPage from '../features/filings/FilingListPage.jsx';
 import FilingDetailPage from '../features/filings/FilingDetailPage.jsx';
 import NewFilingPage from '../features/filings/NewFilingPage.jsx';

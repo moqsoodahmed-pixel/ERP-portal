@@ -40,6 +40,26 @@ export class InvoiceRepository extends TenantRepository {
     return this.model.find(this.scope(tenantId, { invoiceDate: { $gte: from, $lte: to } })).lean();
   }
 }
+/**
+ * Phase 22 — Credit/Debit Notes. `conditionalUpdate` guards the only mutation a note ever undergoes
+ * (ISSUED -> CANCELLED) with the current status as part of the atomic filter, same pattern as
+ * InvoiceRepository — a concurrent double-cancel loses the race instead of double-firing side effects.
+ */
+export class CreditDebitNoteRepository extends TenantRepository {
+  constructor(model) { super(model, { searchFields: ['noteNumber', 'invoiceNumber'], dateField: 'noteDate' }); }
+
+  findByInvoice(tenantId, invoiceId) { return this.model.find(this.scope(tenantId, { invoiceId: String(invoiceId) })).sort({ createdAt: -1 }).lean(); }
+
+  async conditionalUpdate(tenantId, id, matchExtra, patch) {
+    if (!isObjectId(id)) return null;
+    return this.model.findOneAndUpdate(
+      { ...this.scope(tenantId), _id: String(id), ...matchExtra },
+      { $set: patch },
+      { returnDocument: 'after' },
+    ).lean();
+  }
+}
+
 /** Generic tenant-scoped repository for append-style tenant collections (sync logs, filings, history). */
 export class SimpleTenantRepository extends TenantRepository {
   constructor(model) { super(model, { softDelete: false }); }

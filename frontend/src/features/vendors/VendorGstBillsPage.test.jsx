@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext.jsx';
 import { api } from '../../services/apiClient.js';
-import { VendorGstBillsPage } from './VendorsPages.jsx';
+import VendorGstBillsPage from './VendorGstBillsPage.jsx';
 
 vi.mock('../../services/apiClient.js', () => ({
   api: { get: vi.fn(), getBlob: vi.fn() },

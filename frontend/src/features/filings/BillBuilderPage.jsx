@@ -1,8 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import { LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  DefinitionList,
+  DefinitionItem,
+  LoadingState,
+} from '../../design-system/index.js';
 import { formatMoney } from '../../utils/format.js';
 
 const GST_RATE = 18;
@@ -20,8 +28,6 @@ function fileToBase64(file) {
   });
 }
 
-/** Live, display-only preview total — the backend always recomputes subtotal/GST/grand total from the
- * saved line items after a save; these numbers are never sent to the server as authoritative. */
 function previewTotals(rows) {
   const subtotal = rows.reduce((sum, r) => {
     const n = Number(r.rate);
@@ -125,8 +131,6 @@ export default function BillBuilderPage() {
     }
   };
 
-  /** Selecting a file only STAGES it — nothing is sent until the user explicitly clicks Upload, and
-   * Cancel discards the selection without calling the server. */
   const onFileChosen = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -179,11 +183,11 @@ export default function BillBuilderPage() {
       <PageHeader
         title="Create GST Bill"
         subtitle="Billed products and services for this GST filing."
-        actions={<button type="button" className="btn" onClick={() => navigate(`/client/gst-filings/${id}`)}>← Back to filing</button>}
+        actions={<Button onClick={() => navigate(`/client/gst-filings/${id}`)}>← Back to filing</Button>}
       />
       {notice && <p className={`state ${/saved|uploaded/i.test(notice) ? 'state--ok' : 'state--error'}`} role="status">{notice}</p>}
 
-      <section className="card">
+      <Card style={{ marginBottom: '1.25rem' }}>
         <div className="logo-upload" style={{ justifyItems: 'start', marginBottom: '1rem' }}>
           <div className="logo-upload__preview" style={{ width: '96px', height: '96px' }}>
             {logoUrl ? <img src={logoUrl} alt="Company logo" /> : <span>No logo</span>}
@@ -194,97 +198,105 @@ export default function BillBuilderPage() {
         <p className="muted">
           {[company?.address?.line1, company?.address?.city, company?.address?.state, company?.address?.pincode].filter(Boolean).join(', ') || 'Address not set'}
         </p>
-      </section>
+      </Card>
 
-      <section className="card">
-        <h2>Bill items</h2>
-        {errors.form && <p className="field__error">{errors.form}</p>}
-        <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
-              <tr><th>S.No</th><th>Product Name</th><th>Rate</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={idx}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <input
-                      value={row.productName}
-                      onChange={(e) => setRow(idx, { productName: e.target.value })}
-                      placeholder="Enter product"
-                      maxLength={200}
-                    />
-                    {errors.rows?.[idx]?.productName && <span className="field__error">{errors.rows[idx].productName}</span>}
-                  </td>
-                  <td>
-                    <span className="toolbar toolbar--tight">
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Bill items" />
+        <CardBody>
+          {errors.form && <p className="field__error">{errors.form}</p>}
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr><th>S.No</th><th>Product Name</th><th>Rate</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => (
+                  <tr key={idx}>
+                    <td>{idx + 1}</td>
+                    <td>
                       <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={row.rate}
-                        onChange={(e) => setRow(idx, { rate: e.target.value })}
-                        placeholder="Enter rate"
-                        style={{ maxWidth: '140px' }}
+                        value={row.productName}
+                        onChange={(e) => setRow(idx, { productName: e.target.value })}
+                        placeholder="Enter product"
+                        maxLength={200}
                       />
-                      <button type="button" className="btn btn--small" title="Remove product" aria-label="Remove product" onClick={() => removeRow(idx)}>✕</button>
-                    </span>
-                    {errors.rows?.[idx]?.rate && <span className="field__error">{errors.rows[idx].rate}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="toolbar">
-          <button type="button" className="btn" onClick={addRow}>+ Add Product</button>
-        </div>
-
-        <dl className="definition-list" style={{ maxWidth: '320px', marginLeft: 'auto', marginTop: '.5rem' }}>
-          <div><dt>Subtotal</dt><dd>{formatMoney(totals.subtotal)}</dd></div>
-          <div><dt>GST @ {GST_RATE}%</dt><dd>{formatMoney(totals.gstAmount)}</dd></div>
-          <div><dt><strong>Final Total</strong></dt><dd><strong>{formatMoney(totals.grandTotal)}</strong></dd></div>
-        </dl>
-      </section>
-
-      <section className="card">
-        <h2>Upload Bill</h2>
-        {!billExists && <p className="muted">Save the bill before uploading a supporting document.</p>}
-
-        {!pendingFile ? (
-          <div className="toolbar toolbar--tight">
-            <button type="button" className="btn" disabled={!billExists || uploadBusy} onClick={() => fileInputRef.current?.click()}>
-              Choose file
-            </button>
+                      {errors.rows?.[idx]?.productName && <span className="field__error">{errors.rows[idx].productName}</span>}
+                    </td>
+                    <td>
+                      <span className="toolbar toolbar--tight">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={row.rate}
+                          onChange={(e) => setRow(idx, { rate: e.target.value })}
+                          placeholder="Enter rate"
+                          style={{ maxWidth: '140px' }}
+                        />
+                        <button type="button" className="btn btn--small" title="Remove product" aria-label="Remove product" onClick={() => removeRow(idx)}>✕</button>
+                      </span>
+                      {errors.rows?.[idx]?.rate && <span className="field__error">{errors.rows[idx].rate}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div className="toolbar toolbar--tight">
-            <span>Selected: <strong>{pendingFile.name}</strong></span>
-            <button type="button" className="btn btn--primary" disabled={uploadBusy} onClick={confirmUpload}>
-              {uploadBusy ? 'Uploading…' : 'Upload'}
-            </button>
-            <button type="button" className="btn" disabled={uploadBusy} onClick={cancelPendingFile}>Cancel</button>
+          <div className="toolbar" style={{ marginTop: '1rem' }}>
+            <Button onClick={addRow}>+ Add Product</Button>
           </div>
-        )}
-        <input ref={fileInputRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={onFileChosen} style={{ display: 'none' }} />
 
-        {documents.length > 0 && (
-          <>
-            <p className="muted" style={{ marginTop: '.6rem', marginBottom: '.3rem' }}>Uploaded documents:</p>
-            <ul className="link-list">
-              {documents.map((d) => (
-                <li key={d.id}>
-                  {d.fileName} — <button type="button" className="btn btn--small" onClick={() => viewDocument(d.id, d.fileName)}>View</button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </section>
+          <DefinitionList columns={3} style={{ maxWidth: '420px', marginLeft: 'auto', marginTop: '1rem' }}>
+            <DefinitionItem label="Subtotal" value={formatMoney(totals.subtotal)} />
+            <DefinitionItem label={`GST @ ${GST_RATE}%`} value={formatMoney(totals.gstAmount)} />
+            <DefinitionItem label="Final Total">
+              <strong>{formatMoney(totals.grandTotal)}</strong>
+            </DefinitionItem>
+          </DefinitionList>
+        </CardBody>
+      </Card>
 
-      <div className="dialog__actions">
-        <button type="button" className="btn btn--primary" disabled={busy} onClick={onSave}>{busy ? 'Saving…' : 'Save Bill'}</button>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Upload Bill" />
+        <CardBody>
+          {!billExists && <p className="muted">Save the bill before uploading a supporting document.</p>}
+
+          {!pendingFile ? (
+            <div className="toolbar toolbar--tight">
+              <button type="button" className="btn" disabled={!billExists || uploadBusy} onClick={() => fileInputRef.current?.click()}>
+                Choose file
+              </button>
+            </div>
+          ) : (
+            <div className="toolbar toolbar--tight">
+              <span>Selected: <strong>{pendingFile.name}</strong></span>
+              <button type="button" className="btn btn--primary" disabled={uploadBusy} onClick={confirmUpload}>
+                {uploadBusy ? 'Uploading…' : 'Upload'}
+              </button>
+              <button type="button" className="btn" disabled={uploadBusy} onClick={cancelPendingFile}>Cancel</button>
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={onFileChosen} style={{ display: 'none' }} />
+
+          {documents.length > 0 && (
+            <>
+              <p className="muted" style={{ marginTop: '.75rem', marginBottom: '.3rem' }}>Uploaded documents:</p>
+              <ul className="link-list">
+                {documents.map((d) => (
+                  <li key={d.id}>
+                    {d.fileName} — <button type="button" className="btn btn--small" onClick={() => viewDocument(d.id, d.fileName)}>View</button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </CardBody>
+      </Card>
+
+      <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+        <button type="button" className="btn btn--primary" disabled={busy} onClick={onSave}>
+          {busy ? 'Saving…' : 'Save Bill'}
+        </button>
       </div>
     </>
   );

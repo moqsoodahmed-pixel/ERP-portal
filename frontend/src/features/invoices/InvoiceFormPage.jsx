@@ -1,8 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import { LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  FormField,
+  Select,
+  DatePicker,
+  Checkbox,
+  Textarea,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeaderCell,
+  TableCell,
+  LoadingState,
+} from '../../design-system/index.js';
 import { formatMoney } from '../../utils/format.js';
 
 const blankLine = { productId: '', quantity: '1', discount: '0' };
@@ -91,60 +107,161 @@ export default function InvoiceFormPage() {
 
   if (loading) return <LoadingState />;
 
+  const customerOptions = customers.map((c) => ({
+    value: c._id,
+    label: `${c.name} (${c.customerCode})`,
+  }));
+
+  const productOptions = products.map((p) => ({
+    value: p._id,
+    label: `${p.productName} (${formatMoney(p.sellingPrice)})`,
+  }));
+
   return (
     <>
       <PageHeader
         title={isEdit ? 'Edit draft invoice' : 'New invoice'}
         subtitle="Saved as DRAFT. Totals shown below are a preview — the server recomputes authoritative totals on save."
       />
-      <form className="card form" onSubmit={onSubmit} noValidate>
-        {error && <p className="field__error" role="alert">{error}</p>}
-        <label className="field">
-          <span>Customer *</span>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
-            <option value="">Select a customer…</option>
-            {customers.map((c) => <option key={c._id} value={c._id}>{c.name} ({c.customerCode})</option>)}
-          </select>
-        </label>
-        <label className="field"><span>Invoice date *</span><input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} required /></label>
-        <label className="field"><span>Due date</span><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>
-        <label className="field field--inline"><input type="checkbox" checked={gstApplicable} onChange={(e) => setGstApplicable(e.target.checked)} /><span>GST applicable</span></label>
-        <label className="field field--inline"><input type="checkbox" checked={interState} onChange={(e) => setInterState(e.target.checked)} /><span>Inter-state supply (IGST instead of CGST+SGST)</span></label>
-        <label className="field"><span>Notes</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={2} /></label>
+      <form onSubmit={onSubmit} noValidate>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Invoice Details" />
+          <CardBody>
+            {error && <p className="field__error" role="alert" style={{ marginBottom: '1rem' }}>{error}</p>}
 
-        <fieldset>
-          <legend>Items</legend>
-          <table className="table">
-            <thead>
-              <tr><th>Product</th><th>Qty</th><th>Discount</th><th>Taxable (preview)</th><th>Tax (preview)</th><th>Line total (preview)</th><th /></tr>
-            </thead>
-            <tbody>
-              {lines.map((line, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <select value={line.productId} onChange={(e) => setLine(idx, { productId: e.target.value })}>
-                      <option value="">Select…</option>
-                      {products.map((p) => <option key={p._id} value={p._id}>{p.productName} ({formatMoney(p.sellingPrice)})</option>)}
-                    </select>
-                  </td>
-                  <td><input value={line.quantity} inputMode="decimal" onChange={(e) => setLine(idx, { quantity: e.target.value })} style={{ width: '5rem' }} /></td>
-                  <td><input value={line.discount} inputMode="decimal" onChange={(e) => setLine(idx, { discount: e.target.value })} style={{ width: '6rem' }} /></td>
-                  <td>{previews[idx] ? formatMoney(previews[idx].taxable.toFixed(2)) : '—'}</td>
-                  <td>{previews[idx] ? formatMoney(previews[idx].tax.toFixed(2)) : '—'}</td>
-                  <td>{previews[idx] ? formatMoney(previews[idx].lineTotal.toFixed(2)) : '—'}</td>
-                  <td><button type="button" className="btn" onClick={() => removeLine(idx)} disabled={lines.length === 1}>Remove</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button type="button" className="btn" onClick={addLine}>Add item</button>
-        </fieldset>
+            <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <FormField label="Customer" required>
+                <Select
+                  value={customerId}
+                  onChange={(e) => setCustomerId(e.target.value)}
+                  placeholder="Select a customer…"
+                  options={customerOptions}
+                  required
+                />
+              </FormField>
 
-        <p><strong>Preview grand total (not authoritative): {formatMoney(previewTotal.toFixed(2))}</strong></p>
+              <FormField label="Invoice date" required>
+                <DatePicker
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  required
+                />
+              </FormField>
 
-        <div className="dialog__actions">
-          <button type="button" className="btn" onClick={() => navigate('/client/invoices')}>Cancel</button>
-          <button type="submit" className="btn btn--primary" disabled={busy}>{busy ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as draft')}</button>
+              <FormField label="Due date">
+                <DatePicker
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </FormField>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <Checkbox
+                checked={gstApplicable}
+                onChange={(e) => setGstApplicable(e.target.checked)}
+                label="GST applicable"
+              />
+              <Checkbox
+                checked={interState}
+                onChange={(e) => setInterState(e.target.checked)}
+                label="Inter-state supply (IGST instead of CGST+SGST)"
+              />
+            </div>
+
+            <FormField label="Notes">
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={2000}
+                rows={2}
+                placeholder="Optional invoice notes or payment terms…"
+              />
+            </FormField>
+          </CardBody>
+        </Card>
+
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Line Items" subtitle="Select products, quantities, and optional discounts" />
+          <CardBody>
+            <Table caption="Invoice Draft Line Items">
+              <TableHead>
+                <TableRow hover={false}>
+                  <TableHeaderCell>Product</TableHeaderCell>
+                  <TableHeaderCell numeric>Qty</TableHeaderCell>
+                  <TableHeaderCell numeric>Discount</TableHeaderCell>
+                  <TableHeaderCell numeric>Taxable (preview)</TableHeaderCell>
+                  <TableHeaderCell numeric>Tax (preview)</TableHeaderCell>
+                  <TableHeaderCell numeric>Line total (preview)</TableHeaderCell>
+                  <TableHeaderCell><span className="sr-only">Actions</span></TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <tbody>
+                {lines.map((line, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>
+                      <Select
+                        value={line.productId}
+                        onChange={(e) => setLine(idx, { productId: e.target.value })}
+                        placeholder="Select product…"
+                        options={productOptions}
+                      />
+                    </TableCell>
+                    <TableCell numeric>
+                      <input
+                        className="input"
+                        value={line.quantity}
+                        inputMode="decimal"
+                        onChange={(e) => setLine(idx, { quantity: e.target.value })}
+                        style={{ width: '5rem', textAlign: 'right' }}
+                      />
+                    </TableCell>
+                    <TableCell numeric>
+                      <input
+                        className="input"
+                        value={line.discount}
+                        inputMode="decimal"
+                        onChange={(e) => setLine(idx, { discount: e.target.value })}
+                        style={{ width: '6rem', textAlign: 'right' }}
+                      />
+                    </TableCell>
+                    <TableCell numeric>
+                      {previews[idx] ? formatMoney(previews[idx].taxable.toFixed(2)) : '—'}
+                    </TableCell>
+                    <TableCell numeric>
+                      {previews[idx] ? formatMoney(previews[idx].tax.toFixed(2)) : '—'}
+                    </TableCell>
+                    <TableCell numeric>
+                      <strong>{previews[idx] ? formatMoney(previews[idx].lineTotal.toFixed(2)) : '—'}</strong>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        onClick={() => removeLine(idx)}
+                        disabled={lines.length === 1}
+                      >
+                        Remove
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </tbody>
+            </Table>
+
+            <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Button onClick={addLine}>+ Add item</Button>
+              <div style={{ fontSize: '15px' }}>
+                Preview grand total: <strong>{formatMoney(previewTotal.toFixed(2))}</strong>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+          <Button onClick={() => navigate('/client/invoices')}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={busy}>
+            {busy ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as draft')}
+          </Button>
         </div>
       </form>
     </>

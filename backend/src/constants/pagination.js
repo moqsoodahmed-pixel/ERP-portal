@@ -4,4 +4,6 @@ export const HEADERS = Object.freeze({
   ADMIN_TENANT: 'x-admin-tenant-id',
   IDEMPOTENCY_KEY: 'idempotency-key',
 });
-export const ID_PREFIX = Object.freeze({ product: 'PROD', customer: 'CUST', invoice: 'INV', vendor: 'VEND', tenant: 'TNT' });
+export const ID_PREFIX = Object.freeze({
+  product: 'PROD', customer: 'CUST', invoice: 'INV', vendor: 'VEND', tenant: 'TNT', creditNote: 'CN', debitNote: 'DN',
+});

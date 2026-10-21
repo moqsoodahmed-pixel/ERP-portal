@@ -126,7 +126,16 @@ const fileMetadataSchema = new Schema({
   // 'GST_BILL_DOCUMENT' for the GST Bill Builder's "Upload Bill" attachment. Phase 21 adds
   // 'VENDOR_FINAL_DOCUMENT' for the GST_VENDOR's final processed document — a DIFFERENT document, by a
   // different author, from the client's own 'GST_BILL_DOCUMENT' (see GSTBill.finalDocumentIds doc comment).
-  purpose: { type: String, enum: ['INVOICE_PDF', 'GST_DOCUMENT', 'LOGO', 'BILL_DOCUMENT', 'GST_BILL_DOCUMENT', 'VENDOR_FINAL_DOCUMENT', 'OTHER'], default: 'OTHER' },
+  purpose: {
+    type: String,
+    enum: [
+      'INVOICE_PDF', 'GST_DOCUMENT', 'LOGO', 'BILL_DOCUMENT', 'GST_BILL_DOCUMENT', 'VENDOR_FINAL_DOCUMENT',
+      // Phase 22: Company Letterhead Management assets.
+      'LETTERHEAD_BACKGROUND', 'LETTERHEAD_WATERMARK', 'LETTERHEAD_SIGNATURE', 'LETTERHEAD_SEAL', 'LETTERHEAD_QR_CODE',
+      'OTHER',
+    ],
+    default: 'OTHER',
+  },
   scanStatus: { type: String, enum: ['PENDING', 'CLEAN', 'INFECTED'], default: 'PENDING' },
   /** Optional owning-entity link (Phase 15: BILL_INTAKE; Phase 19: GST_BILL). Unset for file purposes that don't need it (e.g. LOGO). */
   entityType: { type: String, enum: ['BILL_INTAKE', 'GST_BILL'], default: undefined },

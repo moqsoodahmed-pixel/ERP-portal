@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/apiClient.js';
 
-/** Small shared data hook for this feature's list/detail pages — mirrors the pattern already used in VendorsPages.jsx. */
+/** Small shared data hook for this feature's list/detail pages — mirrors the pattern used in features/vendors/vendorsApi.js. */
 export function useFetch(path, deps = [], opts) {
   const [state, setState] = useState({ status: 'loading', data: null, error: null });
   const [reloadToken, setReloadToken] = useState(0);

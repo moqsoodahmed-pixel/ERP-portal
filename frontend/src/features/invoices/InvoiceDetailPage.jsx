@@ -1,11 +1,29 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { ErrorState, LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  Button,
+  StatusBadge,
+  DefinitionList,
+  DefinitionItem,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeaderCell,
+  TableCell,
+  AlertNotice,
+  LoadingState,
+  ErrorState,
+  Modal,
+  FormField,
+  Textarea,
+} from '../../design-system/index.js';
 import { formatDate, formatMoney } from '../../utils/format.js';
 
 export default function InvoiceDetailPage() {
@@ -107,139 +125,196 @@ export default function InvoiceDetailPage() {
         title={inv.invoiceNumber}
         subtitle={formatDate(inv.invoiceDate)}
         actions={(
-          <div className="toolbar">
+          <div className="toolbar" style={{ alignItems: 'center' }}>
             <StatusBadge status={inv.invoiceStatus} />
             <StatusBadge status={inv.paymentStatus} />
             {isDraft && can(user, 'invoices.update') && (
-              <button type="button" className="btn" onClick={() => navigate(`/client/invoices/${id}/edit`)}>Edit draft</button>
+              <Button onClick={() => navigate(`/client/invoices/${id}/edit`)}>Edit draft</Button>
             )}
             {isDraft && can(user, 'invoices.issue') && (
-              <button type="button" className="btn btn--primary" disabled={busy} onClick={issue}>Issue</button>
+              <Button variant="primary" disabled={busy} onClick={issue}>Issue</Button>
             )}
             {isDraft && can(user, 'invoices.view') && (
-              <button type="button" className="btn" disabled={pdfBusy} onClick={() => openPdf('get')}>Preview Invoice (Draft)</button>
+              <Button disabled={pdfBusy} onClick={() => openPdf('get')}>Preview Invoice (Draft)</Button>
             )}
             {!isDraft && can(user, 'invoices.view') && (
-              <button type="button" className="btn" disabled={pdfBusy} onClick={() => openPdf('get')}>View/Download PDF</button>
+              <Button disabled={pdfBusy} onClick={() => openPdf('get')}>View/Download PDF</Button>
             )}
             {!isDraft && can(user, 'invoices.update') && (
-              <button type="button" className="btn" disabled={pdfBusy} onClick={() => openPdf('post')}>Regenerate PDF</button>
+              <Button disabled={pdfBusy} onClick={() => openPdf('post')}>Regenerate PDF</Button>
             )}
-            {canCancel && <button type="button" className="btn btn--danger" onClick={() => setShowCancel(true)}>Cancel</button>}
+            <Button onClick={() => window.print()}>Print</Button>
+            {canCancel && (
+              <Button variant="danger" onClick={() => setShowCancel(true)}>Cancel</Button>
+            )}
           </div>
         )}
       />
+
       {notice && <p className="state" role="status">{notice}</p>}
       {pdfBusy && <p className="state" role="status">Preparing the PDF…</p>}
-      {pdfError && <p className="state state--error" role="alert">{pdfError}</p>}
+      {pdfError && <AlertNotice tone="bad">{pdfError}</AlertNotice>}
 
-      {showCancel && (
-        <section className="card">
-          <h2>Cancel invoice</h2>
-          <label className="field">
-            <span>Reason *</span>
-            <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} maxLength={500} rows={2} required />
-          </label>
-          <div className="dialog__actions">
-            <button type="button" className="btn" onClick={() => setShowCancel(false)}>Back</button>
-            <button type="button" className="btn btn--danger" disabled={busy} onClick={confirmCancel}>Confirm cancellation</button>
-          </div>
-        </section>
-      )}
+      <Modal
+        open={showCancel}
+        onClose={() => setShowCancel(false)}
+        title="Cancel invoice"
+        footer={(
+          <>
+            <Button onClick={() => setShowCancel(false)}>Back</Button>
+            <Button variant="danger" disabled={busy} onClick={confirmCancel}>
+              Confirm cancellation
+            </Button>
+          </>
+        )}
+      >
+        <FormField label="Reason" required hint="At least 3 characters">
+          <Textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="Enter reason for cancelling this invoice…"
+            required
+          />
+        </FormField>
+      </Modal>
 
-      <section className="card">
-        <h2>Supplier</h2>
-        <dl className="definition-list">
-          <div><dt>Business</dt><dd>{inv.supplierSnapshot?.businessName ?? '—'}</dd></div>
-          <div><dt>GSTIN</dt><dd className="mono">{inv.supplierSnapshot?.gstin ?? '—'}</dd></div>
-          <div><dt>State</dt><dd>{inv.supplierSnapshot?.stateCode ?? '—'}</dd></div>
-        </dl>
-      </section>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+        <Card>
+          <CardHeader title="Supplier" />
+          <CardBody>
+            <DefinitionList>
+              <DefinitionItem label="Business" value={inv.supplierSnapshot?.businessName} />
+              <DefinitionItem label="GSTIN" value={inv.supplierSnapshot?.gstin} mono />
+              <DefinitionItem label="State" value={inv.supplierSnapshot?.stateCode} />
+            </DefinitionList>
+          </CardBody>
+        </Card>
 
-      <section className="card">
-        <h2>Customer</h2>
-        <dl className="definition-list">
-          <div><dt>Name</dt><dd>{inv.customerSnapshot?.name ?? '—'}</dd></div>
-          <div><dt>GSTIN</dt><dd className="mono">{inv.customerSnapshot?.gstin ?? '—'}</dd></div>
-          <div><dt>Code</dt><dd className="mono">{inv.customerSnapshot?.customerCode ?? '—'}</dd></div>
-        </dl>
-      </section>
+        <Card>
+          <CardHeader title="Customer" />
+          <CardBody>
+            <DefinitionList>
+              <DefinitionItem label="Name" value={inv.customerSnapshot?.name} />
+              <DefinitionItem label="GSTIN" value={inv.customerSnapshot?.gstin} mono />
+              <DefinitionItem label="Code" value={inv.customerSnapshot?.customerCode} mono />
+            </DefinitionList>
+          </CardBody>
+        </Card>
+      </div>
 
-      <section className="card">
-        <h2>Items</h2>
-        <table className="table">
-          <thead>
-            <tr><th>Product</th><th>HSN/SAC</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Line total</th></tr>
-          </thead>
-          <tbody>
-            {inv.items.map((it) => (
-              <tr key={it.productId + it.lineNo}>
-                <td>{it.productName ?? it.description}</td>
-                <td className="mono">{it.hsnSacCode ?? '—'}</td>
-                <td>{it.quantity}</td>
-                <td>{formatMoney(it.unitPrice)}</td>
-                <td>{formatMoney(it.discount)}</td>
-                <td>{formatMoney(it.taxableAmount)}</td>
-                <td>{formatMoney(it.cgst)}</td>
-                <td>{formatMoney(it.sgst)}</td>
-                <td>{formatMoney(it.igst)}</td>
-                <td>{formatMoney(it.lineTotal)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Items" subtitle={`${inv.items?.length || 0} line items billed`} />
+        <CardBody>
+          <Table caption="Invoice Line Items">
+            <TableHead>
+              <TableRow hover={false}>
+                <TableHeaderCell>Product</TableHeaderCell>
+                <TableHeaderCell>HSN/SAC</TableHeaderCell>
+                <TableHeaderCell numeric>Qty</TableHeaderCell>
+                <TableHeaderCell numeric>Unit price</TableHeaderCell>
+                <TableHeaderCell numeric>Discount</TableHeaderCell>
+                <TableHeaderCell numeric>Taxable</TableHeaderCell>
+                <TableHeaderCell numeric>CGST</TableHeaderCell>
+                <TableHeaderCell numeric>SGST</TableHeaderCell>
+                <TableHeaderCell numeric>IGST</TableHeaderCell>
+                <TableHeaderCell numeric>Line total</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <tbody>
+              {inv.items.map((it) => (
+                <TableRow key={it.productId + it.lineNo}>
+                  <TableCell>{it.productName ?? it.description}</TableCell>
+                  <TableCell mono>{it.hsnSacCode ?? '—'}</TableCell>
+                  <TableCell numeric>{it.quantity}</TableCell>
+                  <TableCell numeric>{formatMoney(it.unitPrice)}</TableCell>
+                  <TableCell numeric>{formatMoney(it.discount)}</TableCell>
+                  <TableCell numeric>{formatMoney(it.taxableAmount)}</TableCell>
+                  <TableCell numeric>{formatMoney(it.cgst)}</TableCell>
+                  <TableCell numeric>{formatMoney(it.sgst)}</TableCell>
+                  <TableCell numeric>{formatMoney(it.igst)}</TableCell>
+                  <TableCell numeric><strong>{formatMoney(it.lineTotal)}</strong></TableCell>
+                </TableRow>
+              ))}
+            </tbody>
+          </Table>
+        </CardBody>
+      </Card>
 
-      <section className="card">
-        <h2>Totals</h2>
-        <dl className="definition-list">
-          <div><dt>Subtotal</dt><dd>{formatMoney(inv.subtotal)}</dd></div>
-          <div><dt>Discount</dt><dd>{formatMoney(inv.discount)}</dd></div>
-          <div><dt>Taxable amount</dt><dd>{formatMoney(inv.taxableAmount)}</dd></div>
-          <div><dt>CGST</dt><dd>{formatMoney(inv.cgst)}</dd></div>
-          <div><dt>SGST</dt><dd>{formatMoney(inv.sgst)}</dd></div>
-          <div><dt>IGST</dt><dd>{formatMoney(inv.igst)}</dd></div>
-          <div><dt>Total tax</dt><dd>{formatMoney(inv.totalTax)}</dd></div>
-          <div><dt>Grand total</dt><dd><strong>{formatMoney(inv.grandTotal)}</strong></dd></div>
-        </dl>
-      </section>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <CardHeader title="Totals" />
+        <CardBody>
+          <DefinitionList columns={4}>
+            <DefinitionItem label="Subtotal" value={formatMoney(inv.subtotal)} />
+            <DefinitionItem label="Discount" value={formatMoney(inv.discount)} />
+            <DefinitionItem label="Taxable amount" value={formatMoney(inv.taxableAmount)} />
+            <DefinitionItem label="CGST" value={formatMoney(inv.cgst)} />
+            <DefinitionItem label="SGST" value={formatMoney(inv.sgst)} />
+            <DefinitionItem label="IGST" value={formatMoney(inv.igst)} />
+            <DefinitionItem label="Total tax" value={formatMoney(inv.totalTax)} />
+            <DefinitionItem label="Grand total">
+              <strong style={{ fontSize: '18px', color: 'var(--ink-primary)' }}>{formatMoney(inv.grandTotal)}</strong>
+            </DefinitionItem>
+          </DefinitionList>
+        </CardBody>
+      </Card>
 
       {(inv.notes || inv.termsAndConditions) && (
-        <section className="card">
-          {inv.notes && <p>{inv.notes}</p>}
-          {inv.termsAndConditions && <p>{inv.termsAndConditions}</p>}
-        </section>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader title="Notes & Terms" />
+          <CardBody>
+            {inv.notes && <p style={{ margin: '0 0 0.5rem 0' }}>{inv.notes}</p>}
+            {inv.termsAndConditions && <p className="muted" style={{ margin: 0, fontSize: '13px' }}>{inv.termsAndConditions}</p>}
+          </CardBody>
+        </Card>
       )}
 
       {isIssued && can(user, 'tally.view') && (
-        <section className="card">
-          <h2>Tally sync</h2>
-          <p>
-            <StatusBadge status={tallySync?.status === 'SYNCED' ? 'SYNCED' : tallySync?.status === 'FAILED' ? 'FAILED' : tallySync?.status === 'SYNCING' ? 'SYNCING' : tallySync?.status === 'RETRYING' ? 'RETRYING' : 'NOT_SYNCED'} />
-          </p>
-          {tallySync?.status === 'SYNCED' && (
-            <dl className="definition-list">
-              <div><dt>Voucher number</dt><dd className="mono">{tallySync.voucherNumber ?? '—'}</dd></div>
-              <div><dt>Synced at</dt><dd>{formatDate(tallySync.completedAt)}</dd></div>
-            </dl>
-          )}
-          {(tallySync?.status === 'FAILED' || tallySync?.errorMessage) && (
-            <p className="state state--error" role="alert">{tallySync.errorMessage ?? 'Sync failed'}</p>
-          )}
-          {can(user, 'tally.sync') && (!tallySync || tallySync.status === 'NOT_SYNCED' || tallySync.status === 'FAILED' || tallySync.status === 'RETRYING') && (
-            <button type="button" className="btn" disabled={tallyBusy} onClick={triggerTallySync}>
-              {tallyBusy ? 'Syncing…' : tallySync?.status === 'FAILED' ? 'Retry sync' : 'Sync to Tally'}
-            </button>
-          )}
-        </section>
+        <Card style={{ marginBottom: '1.25rem' }}>
+          <CardHeader
+            title="Tally sync"
+            actions={(
+              <StatusBadge
+                status={
+                  tallySync?.status === 'SYNCED' ? 'SYNCED'
+                    : tallySync?.status === 'FAILED' ? 'FAILED'
+                    : tallySync?.status === 'SYNCING' ? 'SYNCING'
+                    : tallySync?.status === 'RETRYING' ? 'RETRYING'
+                    : 'NOT_SYNCED'
+                }
+              />
+            )}
+          />
+          <CardBody>
+            {tallySync?.status === 'SYNCED' && (
+              <DefinitionList>
+                <DefinitionItem label="Voucher number" value={tallySync.voucherNumber} mono />
+                <DefinitionItem label="Synced at" value={formatDate(tallySync.completedAt)} />
+              </DefinitionList>
+            )}
+            {(tallySync?.status === 'FAILED' || tallySync?.errorMessage) && (
+              <p className="state state--error" role="alert">{tallySync.errorMessage ?? 'Sync failed'}</p>
+            )}
+            {can(user, 'tally.sync') && (!tallySync || tallySync.status === 'NOT_SYNCED' || tallySync.status === 'FAILED' || tallySync.status === 'RETRYING') && (
+              <div style={{ marginTop: '1rem' }}>
+                <Button disabled={tallyBusy} onClick={triggerTallySync}>
+                  {tallyBusy ? 'Syncing…' : tallySync?.status === 'FAILED' ? 'Retry sync' : 'Sync to Tally'}
+                </Button>
+              </div>
+            )}
+          </CardBody>
+        </Card>
       )}
 
       {inv.invoiceStatus === 'CANCELLED' && (
-        <section className="card">
-          <h2>Cancellation</h2>
-          <p>{inv.cancellationReason}</p>
-          <p>{formatDate(inv.cancelledAt)}</p>
-        </section>
+        <Card style={{ borderColor: 'var(--bad)' }}>
+          <CardHeader title="Cancellation Details" />
+          <CardBody>
+            <p style={{ color: 'var(--bad)', fontWeight: 600 }}>{inv.cancellationReason}</p>
+            <p className="muted" style={{ fontSize: '13px' }}>Cancelled on {formatDate(inv.cancelledAt)}</p>
+          </CardBody>
+        </Card>
       )}
     </>
   );

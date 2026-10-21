@@ -18,6 +18,23 @@ export const productCreate = z.object({
 }).strict();
 export const productUpdate = productCreate.partial().extend({ status: z.enum(['ACTIVE', 'INACTIVE']).optional() }).strict();
 
+/** Phase 22 — letterhead text/bank fields, folded into the same PATCH /business-profile body. */
+export const bankDetailsInput = z.object({
+  accountName: z.string().trim().max(200).optional(),
+  accountNumber: z.string().trim().max(40).optional(),
+  ifsc: z.string().trim().max(20).optional(),
+  bankName: z.string().trim().max(200).optional(),
+  branch: z.string().trim().max(200).optional(),
+}).strict();
+export const letterheadDetailsFields = {
+  bankDetails: bankDetailsInput.optional(),
+  footerText: z.string().max(1000).optional(),
+  defaultTermsAndConditions: z.string().max(2000).optional(),
+  declaration: z.string().max(1000).optional(),
+  authorizedSignatoryName: z.string().trim().max(120).optional(),
+  authorizedSignatoryDesignation: z.string().trim().max(120).optional(),
+};
+
 export const businessProfileCreate = z.object({
   displayName: z.string().trim().min(1).max(200),
   gstin: gstinSchema.optional(),
@@ -27,7 +44,8 @@ export const businessProfileCreate = z.object({
   website: z.string().trim().url().max(200).optional(),
   offerings: z.array(z.enum(['PRODUCT', 'SERVICE'])).min(1).max(2).optional(),
 }).strict();
-export const businessProfileUpdate = businessProfileCreate.partial().strict()
+/** Letterhead text/bank fields (Phase 22) are PATCH-only — set after the profile exists, never at creation. */
+export const businessProfileUpdate = businessProfileCreate.partial().extend(letterheadDetailsFields).strict()
   .refine((v) => Object.keys(v).length > 0, 'At least one field is required');
 
 const LOGO_BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -41,6 +59,24 @@ export const businessProfileLogoUpload = z.object({
   mimeType: z.enum(ALLOWED_LOGO_MIME),
   contentBase64: z.string().min(1).max(Math.ceil((MAX_LOGO_BYTES * 4) / 3) + 1024).regex(LOGO_BASE64_RE, 'Invalid base64 content'),
 }).strict();
+
+/**
+ * Phase 22 — Letterhead assets (background/watermark/signature/seal/QR code). Same base64-in-JSON shape
+ * and MIME allow-list as the logo upload above, but a letterhead background is a full-page image so it
+ * gets a larger cap (8MB) than the other, typically-small assets (2MB, same as the logo).
+ */
+const MAX_LETTERHEAD_ASSET_BYTES = 8 * 1024 * 1024;
+export const MAX_LETTERHEAD_ASSET_FILE_BYTES = MAX_LETTERHEAD_ASSET_BYTES;
+const letterheadAssetUpload = (maxBytes) => z.object({
+  fileName: z.string().trim().min(1).max(200),
+  mimeType: z.enum(ALLOWED_LOGO_MIME),
+  contentBase64: z.string().min(1).max(Math.ceil((maxBytes * 4) / 3) + 1024).regex(LOGO_BASE64_RE, 'Invalid base64 content'),
+}).strict();
+export const businessProfileBackgroundUpload = letterheadAssetUpload(MAX_LETTERHEAD_ASSET_BYTES);
+export const businessProfileWatermarkUpload = letterheadAssetUpload(MAX_LETTERHEAD_ASSET_BYTES);
+export const businessProfileSignatureUpload = letterheadAssetUpload(MAX_LOGO_BYTES);
+export const businessProfileSealUpload = letterheadAssetUpload(MAX_LOGO_BYTES);
+export const businessProfileQrCodeUpload = letterheadAssetUpload(MAX_LOGO_BYTES);
 
 export const customerCreate = z.object({
   name: z.string().trim().min(1).max(200),
@@ -72,11 +108,36 @@ export const invoiceCreate = z.object({
     unitPrice: moneySchema.optional(),
     discount: moneySchema.optional(),
     gstRate: z.number().min(0).max(100).optional(),
+    cessRate: z.number().min(0).max(100).optional(),
   }).strict()).min(1).max(200),
 }).strict();
 /** Same shape: a DRAFT edit is a full re-submission of customer/items, recomputed server-side — never a client-sent delta of totals. */
 export const invoiceUpdate = invoiceCreate;
 export const invoiceCancel = z.object({
+  reason: z.string().trim().min(3).max(500),
+}).strict();
+
+/**
+ * Phase 22 — Credit/Debit Notes. Deliberately the SAME item shape as invoiceCreate (productId + quantity +
+ * optional unitPrice/discount/gstRate/cessRate overrides) — tax/total fields are never accepted from the
+ * client here either; `.strict()` rejects them exactly like the invoice validators above. customerId and
+ * gstApplicable/interState are never part of this body: they are always derived from the parent (ISSUED)
+ * invoice server-side, never re-specified by the caller.
+ */
+export const creditDebitNoteCreate = z.object({
+  noteDate: z.coerce.date(),
+  reason: z.string().trim().min(3).max(500),
+  items: z.array(z.object({
+    productId: objectIdSchema,
+    description: z.string().max(500).optional(),
+    quantity: quantitySchema,
+    unitPrice: moneySchema.optional(),
+    discount: moneySchema.optional(),
+    gstRate: z.number().min(0).max(100).optional(),
+    cessRate: z.number().min(0).max(100).optional(),
+  }).strict()).min(1).max(200),
+}).strict();
+export const creditDebitNoteCancel = z.object({
   reason: z.string().trim().min(3).max(500),
 }).strict();
 

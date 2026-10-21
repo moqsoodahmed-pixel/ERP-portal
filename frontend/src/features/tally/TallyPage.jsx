@@ -6,6 +6,18 @@ import PageHeader from '../../components/PageHeader.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import { ErrorState, LoadingState } from '../../components/states.jsx';
 import TallyApiKeysSection from './TallyApiKeysSection.jsx';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardBody,
+  Button,
+  FormField,
+  TextInput,
+  Select,
+  DefinitionList,
+  DefinitionItem,
+} from '../../design-system/index.js';
 
 const BLANK = {
   enabled: false, connectionType: 'LOCAL_TALLY', baseUrl: '', companyName: '', defaultVoucherType: 'Sales',
@@ -52,8 +64,6 @@ export default function TallyPage() {
     setSaving(true);
     setNotice(null);
     try {
-      // The password field is only sent when the admin actually typed a new value — it is never
-      // round-tripped as plaintext from the server, so leaving it blank keeps whatever is already stored.
       const { authPassword, ...rest } = form;
       const body = { ...rest, ...(authPassword ? { authPassword } : {}) };
       await api.post('/tally/config', body);
@@ -84,81 +94,137 @@ export default function TallyPage() {
   if (state.status === 'error') return <ErrorState error={state.error} onRetry={load} />;
 
   return (
-    <>
+    <div className="page-container" style={{ display: 'grid', gap: '1.5rem' }}>
       <PageHeader title="Tally integration" subtitle="Connect this business to a Tally instance and map invoices to ledgers." />
       {notice && <p className="state" role="status">{notice}</p>}
 
-      <section className="card">
-        <h2>Connection status</h2>
-        <dl className="definition-list">
-          <div><dt>Last connection</dt><dd><StatusBadge status={state.data.lastConnectionStatus === 'SUCCESS' ? 'SYNCED' : state.data.lastConnectionStatus === 'FAILED' ? 'FAILED' : 'NOT_SYNCED'} /></dd></div>
-          <div><dt>Last connected at</dt><dd>{state.data.lastConnectedAt ? new Date(state.data.lastConnectedAt).toLocaleString() : '—'}</dd></div>
-        </dl>
-        {canConfigure && (
-          <button type="button" className="btn" disabled={testing} onClick={testConnection}>
-            {testing ? 'Testing…' : 'Test Connection'}
-          </button>
-        )}
-        {testResult && (
-          <p className={`state ${testResult.connected ? '' : 'state--error'}`} role="status">
-            {testResult.connected ? `Connected${testResult.companyName ? ` to ${testResult.companyName}` : ''} (${testResult.responseTimeMs}ms)` : (testResult.message ?? 'Not connected')}
-          </p>
-        )}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Connection status</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <DefinitionList>
+            <DefinitionItem
+              label="Last connection"
+              value={<StatusBadge status={state.data.lastConnectionStatus === 'SUCCESS' ? 'SYNCED' : state.data.lastConnectionStatus === 'FAILED' ? 'FAILED' : 'NOT_SYNCED'} />}
+            />
+            <DefinitionItem
+              label="Last connected at"
+              value={state.data.lastConnectedAt ? new Date(state.data.lastConnectedAt).toLocaleString() : '—'}
+            />
+          </DefinitionList>
 
-      {!canConfigure && <p className="muted">You have read-only access to Tally status. Only a Business administrator can change this configuration.</p>}
+          <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            {canConfigure && (
+              <Button type="button" variant="outline" disabled={testing} onClick={testConnection}>
+                {testing ? 'Testing…' : 'Test Connection'}
+              </Button>
+            )}
+            {testResult && (
+              <p className={`state ${testResult.connected ? '' : 'state--error'}`} role="status" style={{ margin: 0, padding: '0.5rem 1rem' }}>
+                {testResult.connected
+                  ? `Connected${testResult.companyName ? ` to ${testResult.companyName}` : ''} (${testResult.responseTimeMs}ms)`
+                  : (testResult.message ?? 'Not connected')}
+              </p>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+
+      {!canConfigure && (
+        <p className="muted" style={{ margin: 0 }}>
+          You have read-only access to Tally status. Only a Business administrator can change this configuration.
+        </p>
+      )}
 
       {canConfigure && (
-        <form className="card" onSubmit={save}>
-          <h2>Configuration</h2>
-          <label className="field">
-            <span>Enabled</span>
-            <input type="checkbox" checked={form.enabled} onChange={set('enabled')} />
-          </label>
-          <label className="field">
-            <span>Connection type</span>
-            <select value={form.connectionType} onChange={set('connectionType')}>
-              <option value="LOCAL_TALLY">On-premise Tally (reachable over the network)</option>
-              <option value="REMOTE_TALLY">Remote / hosted Tally</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Tally endpoint URL *</span>
-            <input type="text" value={form.baseUrl} onChange={set('baseUrl')} placeholder="http://192.168.1.50:9000" maxLength={2048} />
-          </label>
-          <label className="field">
-            <span>Company name</span>
-            <input type="text" value={form.companyName} onChange={set('companyName')} maxLength={200} />
-          </label>
-          <label className="field">
-            <span>Voucher type</span>
-            <input type="text" value={form.defaultVoucherType} onChange={set('defaultVoucherType')} maxLength={60} />
-          </label>
+        <Card>
+          <CardHeader>
+            <CardTitle>Configuration</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <form className="form" onSubmit={save} style={{ display: 'grid', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                <label className="field field--inline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.enabled} onChange={set('enabled')} />
+                  <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Enable Tally integration</span>
+                </label>
 
-          <h3>Ledger mapping</h3>
-          <label className="field"><span>Sales ledger *</span><input type="text" value={form.salesLedger} onChange={set('salesLedger')} maxLength={200} /></label>
-          <label className="field"><span>CGST ledger</span><input type="text" value={form.cgstLedger} onChange={set('cgstLedger')} maxLength={200} /></label>
-          <label className="field"><span>SGST ledger</span><input type="text" value={form.sgstLedger} onChange={set('sgstLedger')} maxLength={200} /></label>
-          <label className="field"><span>IGST ledger</span><input type="text" value={form.igstLedger} onChange={set('igstLedger')} maxLength={200} /></label>
-          <label className="field"><span>Round-off ledger</span><input type="text" value={form.roundOffLedger} onChange={set('roundOffLedger')} maxLength={200} /></label>
-          <label className="field"><span>Discount ledger</span><input type="text" value={form.discountLedger} onChange={set('discountLedger')} maxLength={200} /></label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                  <FormField label="Connection type">
+                    <Select value={form.connectionType} onChange={set('connectionType')}>
+                      <option value="LOCAL_TALLY">On-premise Tally (reachable over the network)</option>
+                      <option value="REMOTE_TALLY">Remote / hosted Tally</option>
+                    </Select>
+                  </FormField>
 
-          <h3>Connection options</h3>
-          <label className="field"><span>Timeout (ms)</span><input type="number" min={1000} max={60000} value={form.timeoutMs} onChange={set('timeoutMs')} /></label>
-          <label className="field"><span>Max retry attempts</span><input type="number" min={1} max={10} value={form.retryMaxAttempts} onChange={set('retryMaxAttempts')} /></label>
-          <label className="field"><span>Auth username</span><input type="text" value={form.authUsername} onChange={set('authUsername')} maxLength={200} /></label>
-          <label className="field">
-            <span>Auth password {state.data.hasPassword ? '(set — leave blank to keep)' : ''}</span>
-            <input type="password" value={form.authPassword} onChange={set('authPassword')} placeholder={state.data.hasPassword ? '••••••••' : ''} maxLength={500} />
-          </label>
+                  <FormField label="Tally endpoint URL *">
+                    <TextInput type="text" value={form.baseUrl} onChange={set('baseUrl')} placeholder="http://192.168.1.50:9000" maxLength={2048} />
+                  </FormField>
 
-          <div className="dialog__actions">
-            <button type="submit" className="btn btn--primary" disabled={saving}>{saving ? 'Saving…' : 'Save configuration'}</button>
-          </div>
-        </form>
+                  <FormField label="Company name">
+                    <TextInput type="text" value={form.companyName} onChange={set('companyName')} maxLength={200} />
+                  </FormField>
+
+                  <FormField label="Voucher type">
+                    <TextInput type="text" value={form.defaultVoucherType} onChange={set('defaultVoucherType')} maxLength={60} />
+                  </FormField>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', margin: '0 0 1rem' }}>Ledger mapping</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  <FormField label="Sales ledger *">
+                    <TextInput type="text" value={form.salesLedger} onChange={set('salesLedger')} maxLength={200} />
+                  </FormField>
+                  <FormField label="CGST ledger">
+                    <TextInput type="text" value={form.cgstLedger} onChange={set('cgstLedger')} maxLength={200} />
+                  </FormField>
+                  <FormField label="SGST ledger">
+                    <TextInput type="text" value={form.sgstLedger} onChange={set('sgstLedger')} maxLength={200} />
+                  </FormField>
+                  <FormField label="IGST ledger">
+                    <TextInput type="text" value={form.igstLedger} onChange={set('igstLedger')} maxLength={200} />
+                  </FormField>
+                  <FormField label="Round-off ledger">
+                    <TextInput type="text" value={form.roundOffLedger} onChange={set('roundOffLedger')} maxLength={200} />
+                  </FormField>
+                  <FormField label="Discount ledger">
+                    <TextInput type="text" value={form.discountLedger} onChange={set('discountLedger')} maxLength={200} />
+                  </FormField>
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--ink)', margin: '0 0 1rem' }}>Connection options</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                  <FormField label="Timeout (ms)">
+                    <TextInput type="number" min={1000} max={60000} value={form.timeoutMs} onChange={set('timeoutMs')} />
+                  </FormField>
+                  <FormField label="Max retry attempts">
+                    <TextInput type="number" min={1} max={10} value={form.retryMaxAttempts} onChange={set('retryMaxAttempts')} />
+                  </FormField>
+                  <FormField label="Auth username">
+                    <TextInput type="text" value={form.authUsername} onChange={set('authUsername')} maxLength={200} />
+                  </FormField>
+                  <FormField label={`Auth password ${state.data.hasPassword ? '(set — leave blank to keep)' : ''}`}>
+                    <TextInput type="password" value={form.authPassword} onChange={set('authPassword')} placeholder={state.data.hasPassword ? '••••••••' : ''} maxLength={500} />
+                  </FormField>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem' }}>
+                <Button type="submit" variant="primary" disabled={saving}>
+                  {saving ? 'Saving…' : 'Save configuration'}
+                </Button>
+              </div>
+            </form>
+          </CardBody>
+        </Card>
       )}
 
       {canViewApiKeys && <TallyApiKeysSection />}
-    </>
+    </div>
   );
 }

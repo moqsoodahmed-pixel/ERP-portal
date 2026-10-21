@@ -1,40 +1,83 @@
+import React from 'react';
 import { useList } from '../hooks/useList.js';
-import PageHeader from './PageHeader.jsx';
+import {
+  Card,
+  PageHeader,
+  PageToolbar,
+  SearchBox,
+  Select,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '../design-system/index.js';
 import DataTable from './DataTable.jsx';
-import { EmptyState, ErrorState, LoadingState } from './states.jsx';
 
-/** Generic server-paginated list view: search, status filter, loading / empty / error states. */
+/**
+ * Generic server-paginated enterprise list view consuming LDS v1.0.
+ */
 export default function ListPage({
-  title, subtitle, path, columns, statuses = [], emptyTitle, emptyHint, searchPlaceholder = 'Search…', actions, renderRowActions, limit,
+  title,
+  subtitle,
+  path,
+  columns,
+  statuses = [],
+  emptyTitle,
+  emptyHint,
+  searchPlaceholder = 'Search…',
+  actions,
+  renderRowActions,
+  limit,
 }) {
   const list = useList(path, limit ? { limit } : undefined);
   const allColumns = renderRowActions
     ? [...columns, { key: '_actions', header: 'Actions', render: (row) => renderRowActions(row, { reload: list.reload }) }]
     : columns;
+
+  const statusOptions = statuses.map((s) => ({
+    value: s,
+    label: s.replaceAll('_', ' '),
+  }));
+
   return (
     <>
       <PageHeader title={title} subtitle={subtitle} actions={actions} />
-      <section className="card">
-        <div className="toolbar">
-          <label className="field field--inline">
-            <span className="sr-only">Search</span>
-            <input type="search" placeholder={searchPlaceholder} defaultValue={list.params.search} onChange={(e) => list.setSearch(e.target.value)} />
-          </label>
-          {statuses.length > 0 && (
-            <label className="field field--inline">
-              <span className="sr-only">Filter by status</span>
-              <select value={list.params.status} onChange={(e) => list.setStatus(e.target.value)}>
-                <option value="">All statuses</option>
-                {statuses.map((s) => <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>)}
-              </select>
+      <Card>
+        <PageToolbar
+          search={(
+            <label className="field field--inline" style={{ width: '100%' }}>
+              <span className="sr-only">Search</span>
+              <SearchBox
+                placeholder={searchPlaceholder}
+                defaultValue={list.params.search}
+                onChange={(e) => list.setSearch(e.target.value)}
+              />
             </label>
           )}
-        </div>
+          filters={statuses.length > 0 && (
+            <label className="field field--inline">
+              <span className="sr-only">Filter by status</span>
+              <Select
+                value={list.params.status}
+                onChange={(e) => list.setStatus(e.target.value)}
+                placeholder="All statuses"
+                options={statusOptions}
+              />
+            </label>
+          )}
+        />
         {list.status === 'loading' && list.items.length === 0 && <LoadingState />}
         {list.status === 'error' && <ErrorState error={list.error} onRetry={list.reload} />}
         {list.status === 'ready' && list.items.length === 0 && <EmptyState title={emptyTitle} hint={emptyHint} />}
-        {list.items.length > 0 && <DataTable caption={title} columns={allColumns} rows={list.items} pagination={list.pagination} onPage={list.setPage} />}
-      </section>
+        {list.items.length > 0 && (
+          <DataTable
+            caption={title}
+            columns={allColumns}
+            rows={list.items}
+            pagination={list.pagination}
+            onPage={list.setPage}
+          />
+        )}
+      </Card>
     </>
   );
 }

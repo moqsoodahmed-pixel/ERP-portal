@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { roleHome } from '../../constants/roles.js';
 import { LoadingState } from '../../components/states.jsx';
+import { BrandFull } from '../../components/Brand.jsx';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -48,7 +49,7 @@ export default function LoginPage() {
   return (
     <main className="login">
       <section className="login__panel" aria-labelledby="login-title">
-        <div className="brand brand--dark"><span className="brand__mark" aria-hidden="true" />ERP Platform</div>
+        <BrandFull width={260} />
         <h1 id="login-title">Sign in</h1>
         <p className="muted">GST billing, Tally sync and filing progress in one place.</p>
         <form onSubmit={submit} noValidate>

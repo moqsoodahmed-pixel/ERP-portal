@@ -3,6 +3,13 @@ const e = (...v) => Object.freeze(Object.fromEntries(v.map((x) => [x, x])));
 export const TENANT_STATUS = e('ACTIVE', 'SUSPENDED', 'INACTIVE', 'PENDING');
 export const USER_STATUS = e('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING');
 export const INVOICE_STATUS = e('DRAFT', 'ISSUED', 'CANCELLED');
+/**
+ * Phase 22 — Credit/Debit Notes. A note is created directly in ISSUED state (there is no DRAFT: it always
+ * references an already-ISSUED, immutable invoice, and is itself immutable once created) and can only ever
+ * move ISSUED -> CANCELLED (voided, never deleted — same "never destroy financial history" rule as Invoice).
+ */
+export const NOTE_TYPE = e('CREDIT', 'DEBIT');
+export const NOTE_STATUS = e('ISSUED', 'CANCELLED');
 export const PAYMENT_STATUS = e('UNPAID', 'PARTIALLY_PAID', 'PAID');
 export const TALLY_SYNC_STATUS = e('NOT_SYNCED', 'QUEUED', 'SYNCING', 'SYNCED', 'FAILED', 'RETRYING');
 export const GST_FILING_STATUS = e(
@@ -136,6 +143,8 @@ export const AUDIT_ACTIONS = e(
   'TALLY_MATCH_STARTED', 'TALLY_MATCH_COMPLETED', 'TALLY_MATCH_FAILED',
   // Phase 21: vendor final-document upload (client GST Billing Dashboard visibility).
   'GST_FINAL_DOCUMENT_UPLOADED',
+  // Phase 22: Credit/Debit Notes against an already-ISSUED, immutable invoice.
+  'CREDIT_NOTE_CREATED', 'DEBIT_NOTE_CREATED', 'CREDIT_DEBIT_NOTE_CANCELLED',
 );
 
 export const SECURITY_EVENT_TYPES = e(

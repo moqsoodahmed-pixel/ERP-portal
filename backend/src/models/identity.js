@@ -69,6 +69,15 @@ softDeletePlugin(tenantSchema);
 tenantSchema.index({ status: 1, createdAt: -1 });
 tenantSchema.index({ gstin: 1 }, { unique: true, partialFilterExpression: { gstin: { $type: 'string' } } });
 
+/** Phase 22 — Company Letterhead Management. Bank details printed on invoices/credit-notes/debit-notes. */
+const bankDetailsSchema = new Schema({
+  accountName: { type: String, trim: true, maxlength: 200 },
+  accountNumber: { type: String, trim: true, maxlength: 40 },
+  ifsc: { type: String, trim: true, uppercase: true, maxlength: 20 },
+  bankName: { type: String, trim: true, maxlength: 200 },
+  branch: { type: String, trim: true, maxlength: 200 },
+}, { _id: false });
+
 const businessProfileSchema = new Schema({
   displayName: { type: String, required: true },
   gstin: { type: String, uppercase: true, match: GSTIN_REGEX },
@@ -77,6 +86,19 @@ const businessProfileSchema = new Schema({
   email: { type: String, lowercase: true },
   website: String,
   logoFileId: { type: ObjectId, ref: 'FileMetadata' },
+  // Phase 22 — Letterhead assets. Each follows the exact same FileMetadata + StorageService pattern as
+  // logoFileId above (see businessProfile.service.js) — never stored inline/base64 in Mongo.
+  letterheadBackgroundFileId: { type: ObjectId, ref: 'FileMetadata' },
+  watermarkFileId: { type: ObjectId, ref: 'FileMetadata' },
+  signatureFileId: { type: ObjectId, ref: 'FileMetadata' },
+  sealFileId: { type: ObjectId, ref: 'FileMetadata' },
+  qrCodeFileId: { type: ObjectId, ref: 'FileMetadata' },
+  bankDetails: bankDetailsSchema,
+  footerText: { type: String, maxlength: 1000 },
+  defaultTermsAndConditions: { type: String, maxlength: 2000 },
+  declaration: { type: String, maxlength: 1000 },
+  authorizedSignatoryName: { type: String, trim: true, maxlength: 120 },
+  authorizedSignatoryDesignation: { type: String, trim: true, maxlength: 120 },
   offerings: { type: [String], enum: ['PRODUCT', 'SERVICE'], default: ['PRODUCT'] },
 }, { timestamps: true });
 tenantPlugin(businessProfileSchema, { unique: true });

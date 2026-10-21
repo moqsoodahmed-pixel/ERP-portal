@@ -1,11 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { LoadingState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardBody,
+  StatusBadge,
+  LoadingState,
+} from '../../design-system/index.js';
 import { formatMoney, formatDateTime } from '../../utils/format.js';
 
 const ALLOWED_FINAL_DOC_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
@@ -118,30 +123,30 @@ export default function TallyMatchingPage() {
       {state.status === 'loading' && <LoadingState label="Loading matching result…" />}
 
       {state.status === 'error' && (
-        <section className="card">
+        <Card style={{ marginBottom: '1.25rem' }}>
           <p className="state state--error" role="alert"><strong>TALLY CONNECTION ERROR</strong></p>
           <p className="muted">{state.error?.message ?? 'Unable to retrieve Tally data. Please check the Tally connection and try again.'}</p>
           {canRun && <RunButton busy={busy} onRun={run} label="Retry" />}
-        </section>
+        </Card>
       )}
 
       {state.status === 'empty' && (
-        <section className="card">
+        <Card style={{ marginBottom: '1.25rem' }}>
           <p>Tally matching has not been run for this filing yet.</p>
           {canRun ? <RunButton busy={busy} onRun={run} /> : <p className="muted">Ask your assigned GST vendor to run Tally matching.</p>}
-        </section>
+        </Card>
       )}
 
       {state.status === 'ready' && state.data && (
         state.data.overallStatus === 'TALLY_ERROR' ? (
-          <section className="card">
+          <Card style={{ marginBottom: '1.25rem' }}>
             <p className="state state--error" role="alert"><strong>TALLY CONNECTION ERROR</strong></p>
             <p>{state.data.errorMessage || 'Unable to retrieve Tally data. Please check the Tally connection and try again.'}</p>
             {canRun && <RunButton busy={busy} onRun={run} label="Retry" />}
-          </section>
+          </Card>
         ) : (
           <>
-            <section className="card">
+            <Card style={{ marginBottom: '1.25rem' }}>
               <div className="stat-row">
                 <div className="stat"><span className="stat__value">{state.data.totalClientBills}</span><span className="muted">Client Bills</span></div>
                 <div className="stat"><span className="stat__value">{state.data.totalTallyBills}</span><span className="muted">Tally Bills</span></div>
@@ -149,13 +154,13 @@ export default function TallyMatchingPage() {
                 <div className="stat"><span className="stat__value">{state.data.unmatchedCount}</span><span className="muted">Unmatched</span></div>
                 <div className="stat"><span className="stat__value">{state.data.extraTallyCount}</span><span className="muted">Extra Tally Bills</span></div>
               </div>
-              <p>
+              <p style={{ marginTop: '1.25rem' }}>
                 <StatusBadge status={state.data.overallStatus} />{' '}
                 <strong>{SUMMARY_LINE[state.data.overallStatus]?.(state.data)}</strong>
               </p>
-            </section>
+            </Card>
 
-            <section className="card">
+            <Card style={{ marginBottom: '1.25rem' }}>
               <table className="data-table">
                 <thead><tr><th>Client Bill</th><th>Tally Bill</th><th>Status</th><th>Reason</th></tr></thead>
                 <tbody>
@@ -169,36 +174,40 @@ export default function TallyMatchingPage() {
                   ))}
                 </tbody>
               </table>
-            </section>
+            </Card>
 
-            <section className="card">
-              <h2>Vendor Final Document</h2>
-              {uploadNotice && (
-                <p className={`state ${/success/i.test(uploadNotice) ? 'state--ok' : 'state--error'}`} role="status">{uploadNotice}</p>
-              )}
+            <Card style={{ marginBottom: '1.25rem' }}>
+              <CardHeader title="Vendor Final Document" />
+              <CardBody>
+                {uploadNotice && (
+                  <p className={`state ${/success/i.test(uploadNotice) ? 'state--ok' : 'state--error'}`} role="status">{uploadNotice}</p>
+                )}
 
-              {finalDocs.length === 0 && <p className="muted">No final document uploaded yet.</p>}
-              {finalDocs.map((d) => (
-                <div key={d.id} className="card placeholder" style={{ marginBottom: '.6rem' }}>
-                  <strong>{d.fileName}</strong>
-                  <p className="muted">Uploaded by GST Vendor · {formatDateTime(d.uploadedAt)}</p>
-                  <button type="button" className="btn btn--small" onClick={() => viewFinalDocument(d.id, d.fileName)}>View Document</button>
-                </div>
-              ))}
-
-              {canUploadFinal && (
-                state.data.overallStatus === 'FULLY_MATCHED' ? (
-                  <div className="toolbar toolbar--tight">
-                    <button type="button" className="btn btn--primary" disabled={uploadBusy} onClick={() => fileInputRef.current?.click()}>
-                      {uploadBusy ? 'Uploading…' : 'Upload Final Document'}
-                    </button>
-                    <input ref={fileInputRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={onUploadFinalDocument} style={{ display: 'none' }} />
+                {finalDocs.length === 0 && <p className="muted">No final document uploaded yet.</p>}
+                {finalDocs.map((d) => (
+                  <div key={d.id} className="card placeholder" style={{ marginBottom: '.75rem', padding: '1rem 1.25rem' }}>
+                    <strong style={{ fontSize: '15px' }}>{d.fileName}</strong>
+                    <p className="muted" style={{ margin: '0.25rem 0 0.75rem 0', fontSize: '13px' }}>
+                      Uploaded by GST Vendor · {formatDateTime(d.uploadedAt)}
+                    </p>
+                    <button type="button" className="btn btn--small" onClick={() => viewFinalDocument(d.id, d.fileName)}>View Document</button>
                   </div>
-                ) : (
-                  <p className="muted">Upload the final document once this filing is fully matched.</p>
-                )
-              )}
-            </section>
+                ))}
+
+                {canUploadFinal && (
+                  state.data.overallStatus === 'FULLY_MATCHED' ? (
+                    <div className="toolbar toolbar--tight" style={{ marginTop: '1rem' }}>
+                      <button type="button" className="btn btn--primary" disabled={uploadBusy} onClick={() => fileInputRef.current?.click()}>
+                        {uploadBusy ? 'Uploading…' : 'Upload Final Document'}
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={onUploadFinalDocument} style={{ display: 'none' }} />
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ marginTop: '0.75rem' }}>Upload the final document once this filing is fully matched.</p>
+                  )
+                )}
+              </CardBody>
+            </Card>
           </>
         )
       )}

@@ -13,7 +13,7 @@ import { ROLES } from '../constants/roles.js';
  */
 if (env.isProd) { console.error('Refusing to seed a production environment.'); process.exit(1); }
 
-export const DEV_PASSWORD = 'DevOnly-ChangeMe-123';
+export const DEV_PASSWORD = 'Password@123';
 export const SEED_USERS = Object.freeze({
   master: 'master.admin@example.test',
   clientAdmin: 'client.admin@example.test',

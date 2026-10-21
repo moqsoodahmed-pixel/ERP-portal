@@ -63,6 +63,7 @@ export class InvoiceService {
         calc: {
           quantity: item.quantity, unitPrice: item.unitPrice ?? String(product.sellingPrice), discount: item.discount,
           gstRate: item.gstRate ?? (product.isGstApplicable ? product.gstRate : 0),
+          cessRate: item.cessRate ?? 0,
         },
       };
     });
@@ -77,6 +78,14 @@ export class InvoiceService {
       businessName: profile.displayName, gstin: profile.gstin, address: profile.address, stateCode: profile.address?.stateCode,
       email: profile.email, mobile: profile.mobile,
     };
+    // Phase 22: letterhead is frozen at creation time too — only FileMetadata ids are copied, never bytes
+    // (see letterheadSnapshotSchema doc comment in models/business.js).
+    const letterheadSnapshot = {
+      logoFileId: profile.logoFileId, backgroundFileId: profile.letterheadBackgroundFileId, watermarkFileId: profile.watermarkFileId,
+      signatureFileId: profile.signatureFileId, sealFileId: profile.sealFileId, qrCodeFileId: profile.qrCodeFileId,
+      bankDetails: profile.bankDetails, footerText: profile.footerText, declaration: profile.declaration,
+      authorizedSignatoryName: profile.authorizedSignatoryName, authorizedSignatoryDesignation: profile.authorizedSignatoryDesignation,
+    };
 
     const items = resolved.map((r, idx) => ({
       lineNo: idx + 1, productId: r.item.productId, productCode: r.product.productCode, productName: r.product.productName,
@@ -86,10 +95,11 @@ export class InvoiceService {
     }));
 
     return {
-      customerId: dto.customerId, invoiceDate: dto.invoiceDate, dueDate: dto.dueDate, notes: dto.notes, termsAndConditions: dto.termsAndConditions,
+      customerId: dto.customerId, invoiceDate: dto.invoiceDate, dueDate: dto.dueDate, notes: dto.notes,
+      termsAndConditions: dto.termsAndConditions ?? profile.defaultTermsAndConditions,
       placeOfSupplyStateCode: dto.placeOfSupplyStateCode ?? customerSnapshot.stateCode,
       gstApplicable: dto.gstApplicable, interState: Boolean(dto.interState),
-      customerSnapshot, supplierSnapshot, items, ...totals,
+      customerSnapshot, supplierSnapshot, letterheadSnapshot, items, ...totals,
     };
   }
 
@@ -129,7 +139,9 @@ export class InvoiceService {
     if (current.invoiceStatus !== INVOICE_STATUS.DRAFT) throw new ConflictError('Only DRAFT invoices can be issued', 'INVOICE_NOT_DRAFT');
     // Line fields come back from Mongo as Decimal128/lean values, not the plain strings the calculator expects.
     const { lines, totals } = this.calculator.calculate({
-      items: current.items.map((it) => ({ quantity: String(it.quantity), unitPrice: String(it.unitPrice), discount: String(it.discount ?? 0), gstRate: it.gstRate })),
+      items: current.items.map((it) => ({
+        quantity: String(it.quantity), unitPrice: String(it.unitPrice), discount: String(it.discount ?? 0), gstRate: it.gstRate, cessRate: it.cessRate ?? 0,
+      })),
       gstApplicable: current.gstApplicable, interState: current.interState,
     });
     const items = current.items.map((it, idx) => ({ ...it, ...lines[idx] }));

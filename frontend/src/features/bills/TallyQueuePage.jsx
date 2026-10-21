@@ -1,23 +1,20 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import ConfirmDialog from '../../components/ConfirmDialog.jsx';
-import { ErrorState, LoadingState, EmptyState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  StatusBadge,
+  ConfirmModal,
+  ErrorState,
+  LoadingState,
+  EmptyState,
+} from '../../design-system/index.js';
 import { formatDateTime } from '../../utils/format.js';
 import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
 import { useFetch, TALLY_STATUSES } from './billsApi.js';
 
-/**
- * Phase 15/16.1 — server-side Tally job queue (the bridge to the Windows Tally Connector). Backed by
- * GET /tally/queue, which lists BillIntake records by tallyStatus with server-side pagination (spec: no
- * separate admin-facing TallyJob listing endpoint exists yet — see docs/integrations/tally-connector.md).
- * Master Admin sees it platform-wide; GST_VENDOR sees only bills belonging to their actively-assigned
- * clients (enforced server-side). A "Retry" action is wired to the real manual retry endpoint
- * (POST /bills/:id/tally/retry) behind a confirmation dialog — never a client-side state mutation.
- */
 export default function TallyQueuePage({ detailBasePath }) {
   const { user } = useAuth();
   const canRetry = can(user, 'bills.tally_manage');
@@ -50,8 +47,8 @@ export default function TallyQueuePage({ detailBasePath }) {
   return (
     <>
       <PageHeader title="Tally queue" subtitle="Bills ready for (or being processed through) the Tally Connector." />
-      <section className="card">
-        <div className="toolbar">
+      <Card>
+        <div className="toolbar" style={{ marginBottom: '1.25rem' }}>
           <label className="field field--inline">
             <span className="sr-only">Tally status</span>
             <select value={tallyStatus} onChange={onStatusChange}>
@@ -95,7 +92,7 @@ export default function TallyQueuePage({ detailBasePath }) {
               </tbody>
             </table>
             {pagination && (
-              <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
+              <div className="toolbar" style={{ justifyContent: 'flex-end', marginTop: '1.25rem' }}>
                 <span className="muted">Page {pagination.page} of {pagination.totalPages ?? Math.max(1, Math.ceil((pagination.total ?? 0) / (pagination.limit ?? 20)))} ({pagination.total} total)</span>
                 <button type="button" className="btn btn--small" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
                 <button
@@ -110,9 +107,9 @@ export default function TallyQueuePage({ detailBasePath }) {
             )}
           </>
         )}
-      </section>
+      </Card>
 
-      <ConfirmDialog
+      <ConfirmModal
         open={Boolean(confirmRetryId)}
         title="Retry Tally sync?"
         message="This bill will be re-queued for Tally processing."

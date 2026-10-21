@@ -1,20 +1,26 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import PageHeader from '../../components/PageHeader.jsx';
-import StatusBadge from '../../components/StatusBadge.jsx';
-import { ErrorState, LoadingState, EmptyState } from '../../components/states.jsx';
+import {
+  PageHeader,
+  Card,
+  StatusBadge,
+  Select,
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableHeaderCell,
+  TableCell,
+  ErrorState,
+  LoadingState,
+  EmptyState,
+} from '../../design-system/index.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
 import { api } from '../../services/apiClient.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { can } from '../../permissions/permissions.js';
 import { useFetch, BILL_STATUSES } from './billsApi.js';
 
-/**
- * Phase 15 — role-agnostic bill list.
- * - Client ("/client/bills"): own tenant's bills only (server-enforced); can create a new draft bill.
- * - Master Admin ("/master/bills"): platform-wide (per existing permissions).
- * - Vendor ("/vendor/bills"): assigned clients' bills only (server-enforced via the Phase 7 assignment chain).
- */
 export default function BillListPage({ basePath, title, subtitle, showCreate = false }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -35,49 +41,72 @@ export default function BillListPage({ basePath, title, subtitle, showCreate = f
     }
   };
 
+  const statusOptions = BILL_STATUSES.map((s) => ({
+    value: s,
+    label: s.replaceAll('_', ' '),
+  }));
+
   return (
     <>
       <PageHeader
         title={title}
         subtitle={subtitle}
         actions={showCreate && can(user, 'bills.create') && (
-          <button type="button" className="btn btn--primary" disabled={busy} onClick={createDraft}>Upload a new bill</button>
+          <Button variant="primary" disabled={busy} onClick={createDraft}>
+            Upload a new bill
+          </Button>
         )}
       />
-      <section className="card">
-        <div className="toolbar">
+      <Card>
+        <div className="toolbar" style={{ marginBottom: '1.25rem' }}>
           <label className="field field--inline">
             <span className="sr-only">Status</span>
-            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}>
-              <option value="">All statuses</option>
-              {BILL_STATUSES.map((s) => <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>)}
-            </select>
+            <Select
+              value={filters.status}
+              onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+              placeholder="All statuses"
+              options={statusOptions}
+            />
           </label>
         </div>
         {status === 'loading' && <LoadingState />}
         {status === 'error' && <ErrorState error={error} onRetry={reload} />}
-        {status === 'ready' && data.items.length === 0 && <EmptyState title="No bills found" hint="Nothing matches the current filters yet." />}
+        {status === 'ready' && data.items.length === 0 && (
+          <EmptyState title="No bills found" hint="Nothing matches the current filters yet." />
+        )}
         {status === 'ready' && data.items.length > 0 && (
-          <table className="data-table">
-            <thead>
-              <tr><th>Bill number</th><th>Bill date</th><th>Vendor</th><th>Amount</th><th>Status</th><th>Tally status</th><th>Updated</th></tr>
-            </thead>
+          <Table caption="Bills List">
+            <TableHead>
+              <TableRow hover={false}>
+                <TableHeaderCell>Bill number</TableHeaderCell>
+                <TableHeaderCell>Vendor</TableHeaderCell>
+                <TableHeaderCell>Date</TableHeaderCell>
+                <TableHeaderCell numeric>Amount</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                <TableHeaderCell>Tally</TableHeaderCell>
+                <TableHeaderCell>Last update</TableHeaderCell>
+                <TableHeaderCell><span className="sr-only">Action</span></TableHeaderCell>
+              </TableRow>
+            </TableHead>
             <tbody>
               {data.items.map((b) => (
-                <tr key={b._id}>
-                  <td><Link to={`${basePath}/${b._id}`}>{b.billNumber ?? '(no number yet)'}</Link></td>
-                  <td>{b.billDate ? formatDate(b.billDate) : '—'}</td>
-                  <td>{b.vendorName ?? '—'}</td>
-                  <td>{b.amount ?? '—'}</td>
-                  <td><StatusBadge status={b.status} /></td>
-                  <td><StatusBadge status={b.tallyStatus} /></td>
-                  <td>{formatDateTime(b.updatedAt)}</td>
-                </tr>
+                <TableRow key={b._id}>
+                  <TableCell mono>{b.billNumber ?? '—'}</TableCell>
+                  <TableCell>{b.vendorName ?? '—'}</TableCell>
+                  <TableCell>{b.billDate ? formatDate(b.billDate) : '—'}</TableCell>
+                  <TableCell numeric>{b.amount ?? '—'}</TableCell>
+                  <TableCell><StatusBadge status={b.status} /></TableCell>
+                  <TableCell><StatusBadge status={b.tallyStatus} /></TableCell>
+                  <TableCell>{formatDateTime(b.updatedAt)}</TableCell>
+                  <TableCell>
+                    <Link className="btn btn--small" to={`${basePath}/${b._id}`}>View</Link>
+                  </TableCell>
+                </TableRow>
               ))}
             </tbody>
-          </table>
+          </Table>
         )}
-      </section>
+      </Card>
     </>
   );
 }
