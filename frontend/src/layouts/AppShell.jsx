@@ -93,6 +93,14 @@ export default function AppShell({ nav, brandNote }) {
         </div>
       </aside>
       <div className="main">
+        {/* Continuous Page Background Canvas (Parallax Page Layer) */}
+        <div className="dashboard-page-canvas" aria-hidden="true">
+          <div className="canvas-layer canvas-layer--base-mesh" />
+          <div className="canvas-layer canvas-layer--hero-canvas" />
+          <div className="canvas-layer canvas-layer--vector-waves" />
+          <div className="canvas-layer canvas-layer--ambient-fade" />
+          <div className="canvas-layer canvas-layer--grain" />
+        </div>
         <header className="topbar">
           <div className="topbar__left">
             <button
