@@ -16,7 +16,7 @@ const PROCESS_STEPS = [
   { icon: '🏢', title: 'Company Details', description: 'Add company information' },
   { icon: '🧾', title: 'Create Bill', description: 'Add products and rates' },
   { icon: '⬆️', title: 'Upload Bill', description: 'Upload client bill' },
-  { icon: '🗄️', title: 'Tally Matching', description: 'Vendor verifies with Tally' },
+  { icon: '🗄️', title: 'Tally Matching', description: 'LauncherDesk verifies with Tally' },
   { icon: '📄', title: 'Final Document', description: 'Receive final document' },
 ];
 

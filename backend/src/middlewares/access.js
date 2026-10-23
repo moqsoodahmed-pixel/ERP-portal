@@ -56,13 +56,24 @@ export function createAccessMiddlewares({
     next();
   });
 
+  /** Validates that an assistant admin can only access assigned companies. */
+  const assertAssistantAssigned = async (req, tenantId) => {
+    if (req.auth.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (req.auth.assignedTenantIds || []).map(String);
+      if (!assigned.includes(String(tenantId))) {
+        await denyCrossTenant(req, { attemptedTenant: String(tenantId).slice(0, 40), actor: 'MASTER_ASSISTANT_ADMIN', reason: 'TENANT_NOT_ASSIGNED' });
+      }
+    }
+  };
+
   /** Resolves the tenant for tenant-scoped routes. Client-supplied tenant identifiers are never trusted. */
   const resolveTenant = asyncHandler(async (req, res, next) => {
     const { auth } = req;
     const supplied = req.body?.tenantId ?? req.query?.tenantId;
-    if (auth.role === ROLES.MASTER_ADMIN) {
+    if (auth.role === ROLES.MASTER_ADMIN || auth.role === ROLES.MASTER_ASSISTANT_ADMIN) {
       const header = req.get(HEADERS.ADMIN_TENANT);
       if (!header || !isObjectId(header)) throw new ValidationError(`${HEADERS.ADMIN_TENANT} header is required for tenant-scoped administrative access`);
+      await assertAssistantAssigned(req, header);
       const tenant = await tenantRepo.findById(header);
       if (!tenant || tenant.isDeleted) throw new NotFoundError('Client not found');
       req.tenantId = String(tenant._id);
@@ -147,9 +158,11 @@ export function createAccessMiddlewares({
     }
     // Non-vendor roles: same tenant resolution as resolveTenant (admin header / own tenant), inlined here
     // (rather than composed) so the extra "does it match the filing's own tenant" check below is reliable.
-    if (req.auth.role === ROLES.MASTER_ADMIN) {
+    if (req.auth.role === ROLES.MASTER_ADMIN || req.auth.role === ROLES.MASTER_ASSISTANT_ADMIN) {
       const header = req.get(HEADERS.ADMIN_TENANT);
       if (!header || !isObjectId(header)) throw new ValidationError(`${HEADERS.ADMIN_TENANT} header is required for tenant-scoped administrative access`);
+      await assertAssistantAssigned(req, header);
+      await assertAssistantAssigned(req, filing.tenantId);
       const tenant = await tenantRepo.findById(header);
       if (!tenant || tenant.isDeleted) throw new NotFoundError('Client not found');
       req.tenantId = String(tenant._id);
@@ -177,9 +190,10 @@ export function createAccessMiddlewares({
     if (isTenantRole(req.auth.role)) {
       req.tenantId = req.auth.tenantId;
       req.body.tenantId = req.auth.tenantId;
-    } else if (req.auth.role === ROLES.MASTER_ADMIN) {
+    } else if (req.auth.role === ROLES.MASTER_ADMIN || req.auth.role === ROLES.MASTER_ASSISTANT_ADMIN) {
       const header = req.get(HEADERS.ADMIN_TENANT);
       if (!header || !isObjectId(header)) throw new ValidationError(`${HEADERS.ADMIN_TENANT} header is required for tenant-scoped administrative access`);
+      await assertAssistantAssigned(req, header);
       const tenant = await tenantRepo.findById(header);
       if (!tenant || tenant.isDeleted) throw new NotFoundError('Client not found');
       req.tenantId = String(tenant._id);
@@ -221,9 +235,11 @@ export function createAccessMiddlewares({
       req.bill = bill;
       return next();
     }
-    if (req.auth.role === ROLES.MASTER_ADMIN) {
+    if (req.auth.role === ROLES.MASTER_ADMIN || req.auth.role === ROLES.MASTER_ASSISTANT_ADMIN) {
       const header = req.get(HEADERS.ADMIN_TENANT);
       if (!header || !isObjectId(header)) throw new ValidationError(`${HEADERS.ADMIN_TENANT} header is required for tenant-scoped administrative access`);
+      await assertAssistantAssigned(req, header);
+      await assertAssistantAssigned(req, bill.tenantId);
       const tenant = await tenantRepo.findById(header);
       if (!tenant || tenant.isDeleted) throw new NotFoundError('Client not found');
       req.tenantId = String(tenant._id);

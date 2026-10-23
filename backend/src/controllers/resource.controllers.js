@@ -9,14 +9,14 @@ const ctx = makeContext;
 
 export function createClientController({ clientService }) {
   return {
-    list: asyncHandler(async (req, res) => ok(req, res, await clientService.list(req.query))),
-    stats: asyncHandler(async (req, res) => ok(req, res, await clientService.stats())),
-    get: asyncHandler(async (req, res) => ok(req, res, await clientService.get(req.params.id))),
+    list: asyncHandler(async (req, res) => ok(req, res, await clientService.list(req.query, ctx(req)))),
+    stats: asyncHandler(async (req, res) => ok(req, res, await clientService.stats(ctx(req)))),
+    get: asyncHandler(async (req, res) => ok(req, res, await clientService.get(req.params.id, ctx(req)))),
     create: asyncHandler(async (req, res) => created(req, res, await clientService.create(ctx(req), req.body))),
     update: asyncHandler(async (req, res) => ok(req, res, await clientService.update(ctx(req), req.params.id, req.body))),
     setStatus: asyncHandler(async (req, res) => ok(req, res, await clientService.setStatus(ctx(req), req.params.id, req.body.status, req.body.reason))),
-    summary: asyncHandler(async (req, res) => ok(req, res, await clientService.summary(req.params.id))),
-    dashboard: asyncHandler(async (req, res) => ok(req, res, await clientService.dashboard())),
+    summary: asyncHandler(async (req, res) => ok(req, res, await clientService.summary(req.params.id, ctx(req)))),
+    dashboard: asyncHandler(async (req, res) => ok(req, res, await clientService.dashboard(ctx(req)))),
   };
 }
 
@@ -76,6 +76,13 @@ export const createBusinessProfileController = ({ businessProfileService }) => (
   ...assetActions(businessProfileService, 'getSignature', 'uploadSignature', 'removeSignature', 'Signature'),
   ...assetActions(businessProfileService, 'getSeal', 'uploadSeal', 'removeSeal', 'Company seal'),
   ...assetActions(businessProfileService, 'getQrCode', 'uploadQrCode', 'removeQrCode', 'QR code'),
+  listLetterheads: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.listLetterheads(ctx(req)))),
+  getLetterhead: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.getLetterhead(ctx(req), req.params.id))),
+  createLetterhead: asyncHandler(async (req, res) => created(req, res, await businessProfileService.createLetterhead(ctx(req), req.body))),
+  updateLetterhead: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.updateLetterhead(ctx(req), req.params.id, req.body))),
+  duplicateLetterhead: asyncHandler(async (req, res) => created(req, res, await businessProfileService.duplicateLetterhead(ctx(req), req.params.id))),
+  deleteLetterhead: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.deleteLetterhead(ctx(req), req.params.id))),
+  setDefaultLetterhead: asyncHandler(async (req, res) => ok(req, res, await businessProfileService.setDefaultLetterhead(ctx(req), req.params.id))),
 });
 
 export const createProductController = ({ productService }) => crudController(productService);
@@ -135,9 +142,9 @@ export const createCreditDebitNoteController = ({ creditDebitNoteService }) => (
 export const createVendorController = ({ vendorService }) => ({
   list: asyncHandler(async (req, res) => ok(req, res, await vendorService.list(req.query))),
   create: asyncHandler(async (req, res) => created(req, res, await vendorService.create(ctx(req), req.body))),
-  get: asyncHandler(async (req, res) => ok(req, res, await vendorService.get(req.params.vendorId))),
+  get: asyncHandler(async (req, res) => ok(req, res, await vendorService.get(req.params.vendorId, ctx(req)))),
   update: asyncHandler(async (req, res) => ok(req, res, await vendorService.update(ctx(req), req.params.vendorId, req.body), 'Vendor updated')),
-  listAssignments: asyncHandler(async (req, res) => ok(req, res, await vendorService.listAssignments(req.params.vendorId))),
+  listAssignments: asyncHandler(async (req, res) => ok(req, res, await vendorService.listAssignments(req.params.vendorId, ctx(req)))),
   assign: asyncHandler(async (req, res) => created(req, res, await vendorService.assign(ctx(req), req.params.vendorId, req.body.tenantId), 'Vendor assigned')),
   unassign: asyncHandler(async (req, res) => ok(req, res, await vendorService.unassign(ctx(req), req.params.vendorId, req.params.tenantId), 'Vendor unassigned')),
   assignmentLifecycle: asyncHandler(async (req, res) => ok(req, res, await vendorService.setAssignmentLifecycle(ctx(req), req.params.vendorId, req.params.assignmentId, req.body), 'Assignment updated')),

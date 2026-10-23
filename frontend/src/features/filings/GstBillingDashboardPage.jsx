@@ -12,9 +12,9 @@ import {
 import { formatDateTime } from '../../utils/format.js';
 
 const PROCESSING_STATUS = {
-  NONE: { label: 'Awaiting Vendor Processing', tone: 'neutral' },
-  IN_PROGRESS: { label: 'Vendor Processing In Progress', tone: 'info' },
-  COMPLETED: { label: 'Vendor Processing Completed', tone: 'ok' },
+  NONE: { label: 'Processing Pending', tone: 'neutral' },
+  IN_PROGRESS: { label: 'Processing In Progress', tone: 'info' },
+  COMPLETED: { label: 'Processing Completed', tone: 'ok' },
 };
 
 export default function GstBillingDashboardPage() {
@@ -60,7 +60,7 @@ export default function GstBillingDashboardPage() {
 
   return (
     <>
-      <PageHeader title="GST Billing" subtitle="Vendor-processed GST documents for this filing." />
+      <PageHeader title="GST Billing" subtitle="LauncherDesk verified GST documents for this filing." />
 
       <Card style={{ marginBottom: '1.25rem' }}>
         <dl className="definition-list">
@@ -72,19 +72,19 @@ export default function GstBillingDashboardPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Vendor Final Documents" />
+        <CardHeader title="Final GST Documents" />
         <CardBody>
           {finalDocuments.length === 0 && (
             <p className="muted">
               No final document available yet.<br />
-              Your GST vendor will upload the final document after completing the processing.
+              LauncherDesk will provide the final verified document after completing the processing.
             </p>
           )}
           {finalDocuments.map((d) => (
             <div key={d.id} className="card placeholder" style={{ marginBottom: '.75rem', padding: '1rem 1.25rem' }}>
               <strong style={{ wordBreak: 'break-word', fontSize: '15px' }}>{d.fileName}</strong>
               <p className="muted" style={{ margin: '0.25rem 0 0.75rem 0', fontSize: '13px' }}>
-                Uploaded by GST Vendor · {formatDateTime(d.uploadedAt)}
+                Verified by LauncherDesk · {formatDateTime(d.uploadedAt)}
               </p>
               <div className="toolbar toolbar--tight">
                 <ViewDownloadButtons filingId={id} docId={d.id} fileName={d.fileName} />

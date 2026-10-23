@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { canAny } from '../permissions/permissions.js';
@@ -23,6 +23,8 @@ export default function AppShell({ nav, brandNote }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
   const [theme, toggleTheme] = useTheme();
   const items = nav.items.filter((i) => canAny(user, i.permission ? [i.permission] : []));
 
@@ -35,6 +37,16 @@ export default function AppShell({ nav, brandNote }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
   }, []);
 
   const commands = items.map((i) => ({
@@ -133,28 +145,62 @@ export default function AppShell({ nav, brandNote }) {
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" /></svg>
               )}
             </button>
-            <div className="topbar__profile" title={ROLE_LABEL[user?.role]}>
-              <span className="topbar__avatar" aria-hidden="true">
-                <img
-                  src="/brand/admin_avatar.jpg"
-                  alt=""
-                  className="topbar__avatar-img"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'inline-flex'; }}
-                />
-                <IconUser width={16} height={16} style={{ display: 'none' }} />
-              </span>
-              <span className="topbar__identity">
-                <strong>{user?.name}</strong>
-                <small className="muted">{ROLE_LABEL[user?.role]}</small>
-              </span>
-              <svg className="topbar__profile-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+            <div className="topbar__profile-wrapper" ref={profileRef}>
+              <div
+                className="topbar__profile"
+                title={ROLE_LABEL[user?.role]}
+                role="button"
+                tabIndex={0}
+                aria-haspopup="true"
+                aria-expanded={profileOpen}
+                onClick={() => setProfileOpen((v) => !v)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setProfileOpen((v) => !v);
+                  }
+                }}
+              >
+                <span className="topbar__avatar" aria-hidden="true">
+                  <img
+                    src="/brand/admin_avatar.jpg"
+                    alt=""
+                    className="topbar__avatar-img"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'inline-flex'; }}
+                  />
+                  <IconUser width={16} height={16} style={{ display: 'none' }} />
+                </span>
+                <span className="topbar__identity">
+                  <strong>{user?.name}</strong>
+                  <small className="muted">{ROLE_LABEL[user?.role]}</small>
+                </span>
+                <svg className={`topbar__profile-chevron ${profileOpen ? 'is-open' : ''}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+
+              {profileOpen && (
+                <div className="topbar__profile-menu" role="menu">
+                  <div className="topbar__profile-menu-header">
+                    <strong>{user?.name}</strong>
+                    <span className="topbar__profile-menu-email">{user?.email}</span>
+                    <span className="badge badge--neutral" style={{ marginTop: '4px', width: 'fit-content' }}>
+                      {ROLE_LABEL[user?.role]}
+                    </span>
+                  </div>
+                  <div className="topbar__profile-menu-divider" />
+                  <button
+                    type="button"
+                    className="topbar__profile-menu-item topbar__profile-menu-item--danger"
+                    onClick={() => { setProfileOpen(false); logout(); }}
+                    role="menuitem"
+                  >
+                    <IconSignOut width={16} height={16} />
+                    <span>Log out</span>
+                  </button>
+                </div>
+              )}
             </div>
-            <button type="button" className="btn btn--signout" onClick={logout} title="Sign out">
-              <IconSignOut width={15} height={15} />
-              <span>Sign out</span>
-            </button>
           </div>
         </header>
         <main className="content" id="content">

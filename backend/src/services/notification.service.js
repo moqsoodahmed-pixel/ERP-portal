@@ -173,18 +173,17 @@ export class NotificationService {
     });
   }
 
-  /** action: 'ASSIGNED' | 'UNASSIGNED' | 'REACTIVATED'. Notifies the vendor's users and the tenant's admins. */
+  /** action: 'ASSIGNED' | 'UNASSIGNED' | 'REACTIVATED'. Notifies the vendor's users (internal only, never leaks vendor to client). */
   async vendorAssignmentChanged(assignment, action, { vendorName, tenantName } = {}) {
     const at = assignment.reactivatedAt ?? assignment.unassignedAt ?? assignment.assignedAt ?? assignment.updatedAt;
     const vendorRecipients = (await this.vendorUsers(assignment.vendorId)).map((user) => ({ user, actionUrl: '/vendor/clients' }));
-    const adminRecipients = await this.#toTenantAdmins(assignment.tenantId, () => '/client/gst-vendor');
     const verb = { ASSIGNED: 'assigned to', UNASSIGNED: 'unassigned from', REACTIVATED: 're-assigned to' }[action] ?? 'changed for';
     return this.notify({
       tenantId: assignment.tenantId, type: T.VENDOR_ASSIGNMENT_CHANGED, severity: action === 'UNASSIGNED' ? S.WARNING : S.INFO,
       title: `GST vendor ${vendorName ?? ''} ${verb} ${tenantName ?? 'a client'}`.replace(/\s+/g, ' ').trim(),
       entityType: 'VendorClientAssignment', entityId: assignment._id,
       dedupKey: `${T.VENDOR_ASSIGNMENT_CHANGED}:${assignment._id}:${action}:${ms(at)}`,
-      recipients: [...vendorRecipients, ...adminRecipients],
+      recipients: vendorRecipients,
     });
   }
 

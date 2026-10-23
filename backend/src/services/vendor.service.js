@@ -1,4 +1,4 @@
-import { ConflictError, NotFoundError } from '../utils/errors.js';
+import { ConflictError, NotFoundError, ForbiddenError } from '../utils/errors.js';
 import { hashPassword } from '../security/password.js';
 import { ROLES } from '../constants/roles.js';
 import { AUDIT_ACTIONS, USER_STATUS, ASSIGNMENT_STATUS } from '../constants/statuses.js';
@@ -11,7 +11,7 @@ export class VendorService {
     Object.assign(this, { vendorRepo, userRepo, tenantRepo, assignmentRepo, invoiceService, counterRepo, auditService, notificationService });
   }
 
-  /** Phase 9: VENDOR_ASSIGNMENT_CHANGED to the vendor's users + the tenant's CLIENT_ADMINs, after the change is persisted. */
+  /** Phase 9: VENDOR_ASSIGNMENT_CHANGED to the vendor's users, after the change is persisted. */
   async #notifyAssignment(assignment, action) {
     if (!this.notificationService || !assignment) return;
     const [vendor, tenant] = await Promise.all([this.vendorRepo.findById(assignment.vendorId), this.tenantRepo.findById(assignment.tenantId)]);
@@ -37,10 +37,14 @@ export class VendorService {
     return { items: r.items, pagination: buildPageMeta(p, r.total) };
   }
 
-  async get(vendorId) {
+  async get(vendorId, ctx) {
     const vendor = await this.vendorRepo.findById(vendorId);
     if (!vendor || vendor.isDeleted) throw new NotFoundError('Vendor not found');
-    const assignments = await this.assignmentRepo.listForVendor(vendorId);
+    let assignments = await this.assignmentRepo.listForVendor(vendorId);
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (ctx.actor.assignedTenantIds || []).map(String);
+      assignments = assignments.filter((a) => assigned.includes(String(a.tenantId)));
+    }
     return { vendor, assignments };
   }
 
@@ -57,12 +61,23 @@ export class VendorService {
     return updated;
   }
 
-  listAssignments(vendorId) { return this.assignmentRepo.listForVendor(vendorId); }
+  async listAssignments(vendorId, ctx) {
+    const assignments = await this.assignmentRepo.listForVendor(vendorId);
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (ctx.actor.assignedTenantIds || []).map(String);
+      return assignments.filter((a) => assigned.includes(String(a.tenantId)));
+    }
+    return assignments;
+  }
 
   /** Deactivate (reason required) or reactivate a specific assignment, scoped to this vendor only (IDOR guard). */
   async setAssignmentLifecycle(ctx, vendorId, assignmentId, { action, reason }) {
     const assignment = await this.assignmentRepo.byId(assignmentId);
     if (!assignment || String(assignment.vendorId) !== String(vendorId)) throw new NotFoundError('Assignment not found');
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (ctx.actor.assignedTenantIds || []).map(String);
+      if (!assigned.includes(String(assignment.tenantId))) throw new ForbiddenError('Access denied to unassigned company');
+    }
     if (action === 'deactivate') {
       if (assignment.status !== ASSIGNMENT_STATUS.ACTIVE) throw new ConflictError('Assignment is not active', 'NOT_ACTIVE');
       const updated = await this.assignmentRepo.unassign(vendorId, assignment.tenantId, ctx.actor.id, reason);
@@ -78,8 +93,11 @@ export class VendorService {
     return updated;
   }
 
-  /** Client Admin's read-only view of vendor(s) assigned to THEIR OWN tenant (ctx.tenantId is server-derived). */
+  /** Client Admin's view: LauncherDesk is the direct service provider. Client never sees third-party vendors. */
   async clientVendors(ctx) {
+    if (ctx?.actor?.role === ROLES.CLIENT_ADMIN || ctx?.actor?.role === ROLES.CLIENT_USER) {
+      return [];
+    }
     const assignments = await this.assignmentRepo.listForTenant(ctx.tenantId);
     const vendors = await Promise.all(assignments.map(async (a) => {
       const vendor = await this.vendorRepo.findById(a.vendorId);
@@ -92,6 +110,10 @@ export class VendorService {
   }
 
   async assign(ctx, vendorId, tenantId) {
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (ctx.actor.assignedTenantIds || []).map(String);
+      if (!assigned.includes(String(tenantId))) throw new ForbiddenError('Access denied to unassigned company');
+    }
     const vendor = await this.vendorRepo.findById(vendorId);
     if (!vendor || vendor.isDeleted) throw new NotFoundError('Vendor not found');
     const tenant = await this.tenantRepo.findById(tenantId);
@@ -104,6 +126,10 @@ export class VendorService {
   }
 
   async unassign(ctx, vendorId, tenantId) {
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (ctx.actor.assignedTenantIds || []).map(String);
+      if (!assigned.includes(String(tenantId))) throw new ForbiddenError('Access denied to unassigned company');
+    }
     const assignment = await this.assignmentRepo.unassign(vendorId, tenantId, ctx.actor.id);
     if (!assignment) throw new NotFoundError('Active assignment not found');
     await this.auditService.record(ctx, { action: AUDIT_ACTIONS.VENDOR_UNASSIGNED, resourceType: 'Vendor', resourceId: vendorId, tenantId, metadata: { vendorId } });

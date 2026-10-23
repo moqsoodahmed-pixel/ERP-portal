@@ -16,6 +16,7 @@ if (env.isProd) { console.error('Refusing to seed a production environment.'); p
 export const DEV_PASSWORD = 'Password@123';
 export const SEED_USERS = Object.freeze({
   master: 'master.admin@example.test',
+  assistant: 'assistant.admin@example.test',
   clientAdmin: 'client.admin@example.test',
   clientUser: 'client.user@example.test',
   clientBAdmin: 'clientb.admin@example.test',
@@ -46,6 +47,7 @@ let tenant = await repos.tenants.findByCode('TNT-DEMO01');
 if (!tenant) {
   tenant = await repos.tenants.create({ tenantCode: 'TNT-DEMO01', businessName: 'Demo Traders (FAKE DATA)', legalName: 'Demo Traders Private Limited', email: 'accounts@demo-traders.example.test', status: 'ACTIVE', createdBy: master._id });
 }
+const assistant = await ensureUser(SEED_USERS.assistant, { name: 'Demo Assistant Admin', role: ROLES.MASTER_ASSISTANT_ADMIN, assignedTenantIds: [tenant._id] });
 const clientAdmin = await ensureUser(SEED_USERS.clientAdmin, { name: 'Demo Client Admin', role: ROLES.CLIENT_ADMIN, tenantId: tenant._id });
 await ensureUser(SEED_USERS.clientUser, { name: 'Demo Client User', role: ROLES.CLIENT_USER, tenantId: tenant._id });
 
@@ -97,11 +99,62 @@ if ((await repos.customers.count(tenant._id)) === 0) {
   await services.customerService.create(ctx, { name: 'Demo Customer (FAKE)', email: 'customer@example.test' });
   await services.customerService.create(ctx, { name: 'Demo Retail Buyer (FAKE)', businessName: 'Demo Retail Co', email: 'retail@example.test', gstin: '27AAAPL1234C1Z5' });
 }
-if (!(await repos.businessProfiles.findByTenant(tenant._id))) {
-  await services.businessProfileService.create(ctx, {
+let profile = await repos.businessProfiles.findByTenant(tenant._id);
+if (!profile) {
+  profile = await services.businessProfileService.create(ctx, {
     displayName: 'Demo Traders (FAKE DATA)', mobile: '9876500001', email: 'profile@demo-traders.example.test',
+    gstin: '27AABCT1234A1Z5', pan: 'AABCT1234A', msme: 'UDYAM-MH-12-0012345', cin: 'U74999MH2025PTC123456',
     address: { line1: '1 MG Road', city: 'Pune', state: 'Maharashtra', stateCode: '27', pincode: '411001' },
+    bankDetails: { bankName: 'HDFC Bank', accountNumber: '50200012345678', ifsc: 'HDFC0000123', branch: 'Koramangala, Bengaluru' },
+    defaultTermsAndConditions: '1. Payment due within 30 days of invoice date.\n2. Goods once sold will not be taken back.\n3. Subject to Pune jurisdiction.',
+    declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
+    authorizedSignatoryName: 'Rajesh Sharma', authorizedSignatoryDesignation: 'Director',
   });
+}
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const demoLogoPath = path.resolve(__dirname, '../../../frontend/public/brand/launcherdesk-full.png');
+try {
+  const logoBuf = await fs.readFile(demoLogoPath);
+  const base64 = logoBuf.toString('base64');
+  if (!profile.logoFileId) {
+    profile = await services.businessProfileService.uploadLogo(ctx, {
+      fileName: 'launcherdesk-full.png',
+      mimeType: 'image/png',
+      contentBase64: base64,
+    });
+  }
+} catch (e) {
+  console.warn('Could not seed logo for Tenant A', e.message);
+}
+
+if (!profile.letterheads || profile.letterheads.length === 0) {
+  await services.businessProfileService.createLetterhead(ctx, {
+    name: 'Executive Corporate Letterhead',
+    isDefault: true,
+    margins: { top: 36, bottom: 36, left: 36, right: 36 },
+    colors: { primary: '#0f172a', secondary: '#475569', accent: '#2563eb' },
+    typography: { fontFamily: 'Helvetica', headingAlignment: 'left' },
+    pan: 'AABCT1234A', msme: 'UDYAM-MH-12-0012345', cin: 'U74999MH2025PTC123456',
+    watermarkSettings: { opacity: 0.1, scale: 240 },
+    bankDetails: { bankName: 'HDFC Bank', accountNumber: '50200012345678', ifsc: 'HDFC0000123', branch: 'Koramangala, Bengaluru' },
+    footerText: 'Demo Traders Pvt. Ltd. | CIN: U74999MH2025PTC123456 | GSTIN: 27AABCT1234A1Z5 | E. & O.E.',
+    declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
+    defaultTermsAndConditions: '1. Payment due within 30 days.\n2. Subject to Pune jurisdiction.',
+    authorizedSignatoryName: 'Rajesh Sharma', authorizedSignatoryDesignation: 'Director',
+    customSections: [{ id: 'sec-1', title: 'Payment Terms', content: 'Bank Transfer / RTGS / NEFT / UPI accepted.', order: 1, visible: true }],
+  });
+}
+
+// Backfill any demo invoices created prior to logo upload
+if (profile.logoFileId) {
+  await models.Invoice.updateMany(
+    { tenantId: tenant._id, 'letterheadSnapshot.logoFileId': { $in: [null, undefined] } },
+    { $set: { 'letterheadSnapshot.logoFileId': profile.logoFileId } }
+  );
 }
 
 // Demo Tally config for tenant A only: enabled but pointing at a placeholder `.test` host (RFC 2606
@@ -140,13 +193,56 @@ if ((await repos.products.count(tenantB._id)) === 0) {
 if ((await repos.customers.count(tenantB._id)) === 0) {
   await services.customerService.create(ctxB, { name: 'Demo Logistics Customer (FAKE)', email: 'customer@demo-logistics.example.test' });
 }
-if (!(await repos.businessProfiles.findByTenant(tenantB._id))) {
-  await services.businessProfileService.create(ctxB, {
+let profileB = await repos.businessProfiles.findByTenant(tenantB._id);
+if (!profileB) {
+  profileB = await services.businessProfileService.create(ctxB, {
     displayName: 'Demo Logistics Co (FAKE DATA)', mobile: '9876500002', email: 'profile@demo-logistics.example.test',
+    gstin: '27AABCL5678B1Z2', pan: 'AABCL5678B', msme: 'UDYAM-MH-12-0056789', cin: 'U60200MH2025PTC567890',
     address: { line1: '22 Industrial Area', city: 'Nagpur', state: 'Maharashtra', stateCode: '27', pincode: '440001' },
+    bankDetails: { bankName: 'ICICI Bank', accountNumber: '001105012345', ifsc: 'ICIC0000011', branch: 'Civil Lines, Nagpur' },
+    defaultTermsAndConditions: '1. Standard freight terms apply.\n2. Payment within 15 days.',
+    declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
+    authorizedSignatoryName: 'Anil Deshmukh', authorizedSignatoryDesignation: 'Managing Partner',
+  });
+}
+try {
+  const logoBuf = await fs.readFile(demoLogoPath);
+  const base64 = logoBuf.toString('base64');
+  if (!profileB.logoFileId) {
+    profileB = await services.businessProfileService.uploadLogo(ctxB, {
+      fileName: 'launcherdesk-full.png',
+      mimeType: 'image/png',
+      contentBase64: base64,
+    });
+  }
+} catch (e) {
+  console.warn('Could not seed logo for Tenant B', e.message);
+}
+
+if (!profileB.letterheads || profileB.letterheads.length === 0) {
+  await services.businessProfileService.createLetterhead(ctxB, {
+    name: 'Modern Logistics Letterhead',
+    isDefault: true,
+    margins: { top: 36, bottom: 36, left: 36, right: 36 },
+    colors: { primary: '#1e293b', secondary: '#64748b', accent: '#059669' },
+    typography: { fontFamily: 'Helvetica', headingAlignment: 'left' },
+    pan: 'AABCL5678B', msme: 'UDYAM-MH-12-0056789', cin: 'U60200MH2025PTC567890',
+    watermarkSettings: { opacity: 0.08, scale: 220 },
+    bankDetails: { bankName: 'ICICI Bank', accountNumber: '001105012345', ifsc: 'ICIC0000011', branch: 'Civil Lines, Nagpur' },
+    footerText: 'Demo Logistics Co Pvt. Ltd. | CIN: U60200MH2025PTC567890 | GSTIN: 27AABCL5678B1Z2 | E. & O.E.',
+    declaration: 'We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.',
+    defaultTermsAndConditions: '1. Standard freight terms apply.\n2. Payment within 15 days.',
+    authorizedSignatoryName: 'Anil Deshmukh', authorizedSignatoryDesignation: 'Managing Partner',
+    customSections: [{ id: 'sec-1', title: 'Dispatch Note', content: 'Safe handling and transit insurance verified.', order: 1, visible: true }],
   });
 }
 await seedInvoices(tenantB, ctxB);
+if (profileB.logoFileId) {
+  await models.Invoice.updateMany(
+    { tenantId: tenantB._id, 'letterheadSnapshot.logoFileId': { $in: [null, undefined] } },
+    { $set: { 'letterheadSnapshot.logoFileId': profileB.logoFileId } }
+  );
+}
 
 // ---- Phase 8: GST filing workflow tracker demo data -----------------------------------------
 // ERP-internal workflow tracker only. No government acknowledgement/ARN is ever fabricated here:

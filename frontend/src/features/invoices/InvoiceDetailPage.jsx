@@ -35,6 +35,9 @@ export default function InvoiceDetailPage() {
   const [notice, setNotice] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
   const [showCancel, setShowCancel] = useState(false);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteType, setNoteType] = useState('credit');
+  const [noteReason, setNoteReason] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState(null);
   const [tallySync, setTallySync] = useState(null);
@@ -93,6 +96,36 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const confirmCreateNote = async () => {
+    if (noteReason.trim().length < 3) {
+      setNotice('A reason (at least 3 characters) is required.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const endpoint = noteType === 'credit' ? `/invoices/${id}/credit-notes` : `/invoices/${id}/debit-notes`;
+      const items = (state.invoice.items || []).map((it) => ({
+        productId: it.productId,
+        description: it.productName ?? it.description,
+        quantity: String(it.quantity),
+        unitPrice: String(it.unitPrice),
+      }));
+      await api.post(endpoint, {
+        noteDate: new Date().toISOString(),
+        reason: noteReason.trim(),
+        items,
+      });
+      setNotice(`${noteType === 'credit' ? 'Credit' : 'Debit'} note issued.`);
+      setShowNoteModal(false);
+      setNoteReason('');
+      load();
+    } catch (err) {
+      setNotice(err.message ?? 'Could not create note');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openPdf = async (method) => {
     setPdfBusy(true);
     setPdfError(null);
@@ -128,6 +161,11 @@ export default function InvoiceDetailPage() {
           <div className="toolbar" style={{ alignItems: 'center' }}>
             <StatusBadge status={inv.invoiceStatus} />
             <StatusBadge status={inv.paymentStatus} />
+            {!isDraft && (
+              <span className="badge badge--neutral" title="Pricing is read-only after finalization" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                🔒 Pricing Locked
+              </span>
+            )}
             {isDraft && can(user, 'invoices.update') && (
               <Button onClick={() => navigate(`/client/invoices/${id}/edit`)}>Edit draft</Button>
             )}
@@ -142,6 +180,21 @@ export default function InvoiceDetailPage() {
             )}
             {!isDraft && can(user, 'invoices.update') && (
               <Button disabled={pdfBusy} onClick={() => openPdf('post')}>Regenerate PDF</Button>
+            )}
+            {can(user, 'invoices.create') && (
+              <Button onClick={() => navigate(`/client/invoices/new?duplicateFrom=${id}`)}>
+                Duplicate invoice
+              </Button>
+            )}
+            {isIssued && can(user, 'notes.create') && (
+              <>
+                <Button onClick={() => { setNoteType('credit'); setShowNoteModal(true); }}>
+                  Create credit note
+                </Button>
+                <Button onClick={() => { setNoteType('debit'); setShowNoteModal(true); }}>
+                  Create debit note
+                </Button>
+              </>
             )}
             <Button onClick={() => window.print()}>Print</Button>
             {canCancel && (
@@ -175,6 +228,36 @@ export default function InvoiceDetailPage() {
             maxLength={500}
             rows={3}
             placeholder="Enter reason for cancelling this invoice…"
+            required
+          />
+        </FormField>
+      </Modal>
+
+      <Modal
+        open={showNoteModal}
+        onClose={() => setShowNoteModal(false)}
+        title={noteType === 'credit' ? 'Create Credit Note' : 'Create Debit Note'}
+        footer={(
+          <>
+            <Button onClick={() => setShowNoteModal(false)}>Back</Button>
+            <Button variant="primary" disabled={busy} onClick={confirmCreateNote}>
+              Confirm & issue {noteType === 'credit' ? 'credit note' : 'debit note'}
+            </Button>
+          </>
+        )}
+      >
+        <p className="muted" style={{ marginTop: 0 }}>
+          {noteType === 'credit'
+            ? 'Issue a credit note to adjust or reduce pricing on this finalized invoice.'
+            : 'Issue a debit note to increase billing on this finalized invoice.'}
+        </p>
+        <FormField label="Reason" required hint="At least 3 characters">
+          <Textarea
+            value={noteReason}
+            onChange={(e) => setNoteReason(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder={`Enter reason for ${noteType} note…`}
             required
           />
         </FormField>

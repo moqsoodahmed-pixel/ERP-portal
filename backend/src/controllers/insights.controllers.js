@@ -9,7 +9,7 @@ import { makeContext } from '../utils/context.js';
  */
 export const createDashboardController = ({ dashboardService }) => ({
   client: asyncHandler(async (req, res) => ok(req, res, await dashboardService.client(makeContext(req), req.query))),
-  master: asyncHandler(async (req, res) => ok(req, res, await dashboardService.master(req.query))),
+  master: asyncHandler(async (req, res) => ok(req, res, await dashboardService.master(req.query, makeContext(req)))),
   vendor: asyncHandler(async (req, res) => ok(req, res, await dashboardService.vendor(makeContext(req)))),
 });
 

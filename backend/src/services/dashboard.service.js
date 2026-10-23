@@ -2,6 +2,7 @@ import {
   INVOICE_STATUS, TALLY_SYNC_STATUS, FILING_STATUS, FILING_ISSUE_STATUS, PRODUCT_STATUS, CUSTOMER_STATUS,
   BILL_STATUS, TALLY_JOB_STATUS,
 } from '../constants/statuses.js';
+import { ROLES } from '../constants/roles.js';
 import { resolveDateRange } from '../utils/dateRange.js';
 
 const OPEN_ISSUE = [FILING_ISSUE_STATUS.OPEN, FILING_ISSUE_STATUS.IN_PROGRESS];
@@ -77,25 +78,28 @@ export class DashboardService {
     return { scope: 'TENANT', range, invoices, customers, products, tally, gstFilings };
   }
 
-  async master(query = {}) {
+  async master(query = {}, ctx) {
     const range = resolveDateRange(query);
-    const all = { allTenants: true };
+    const isAssistant = ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN;
+    const scope = isAssistant
+      ? { tenantIds: (ctx.actor.assignedTenantIds || []).map(String) }
+      : { allTenants: true };
     const rs = this.reportService;
     const [base, filingPipeline, openIssues, tallyByStatus, invoiceByStatus, securityTotal, securityHigh] = await Promise.all([
-      this.clientService.dashboard(),
-      rs.countBy('GSTFiling', all, {}, 'status', FILING_KEYS),
-      this.reportRepo.count('GSTFilingIssue', all, { status: { $in: OPEN_ISSUE } }),
-      rs.countBy('TallySyncLog', all, { startedAt: { $gte: range.from, $lte: range.to } }, 'status', Object.values(TALLY_SYNC_STATUS)),
-      rs.countBy('Invoice', all, { invoiceDate: { $gte: range.from, $lte: range.to } }, 'invoiceStatus', Object.values(INVOICE_STATUS)),
-      this.securityEventRepo.countInRange(range.from, range.to),
-      this.securityEventRepo.countInRange(range.from, range.to, { severity: { $in: ['HIGH', 'CRITICAL'] } }),
+      this.clientService.dashboard(ctx),
+      rs.countBy('GSTFiling', scope, {}, 'status', FILING_KEYS),
+      this.reportRepo.count('GSTFilingIssue', scope, { status: { $in: OPEN_ISSUE } }),
+      rs.countBy('TallySyncLog', scope, { startedAt: { $gte: range.from, $lte: range.to } }, 'status', Object.values(TALLY_SYNC_STATUS)),
+      rs.countBy('Invoice', scope, { invoiceDate: { $gte: range.from, $lte: range.to } }, 'invoiceStatus', Object.values(INVOICE_STATUS)),
+      isAssistant ? 0 : this.securityEventRepo.countInRange(range.from, range.to),
+      isAssistant ? 0 : this.securityEventRepo.countInRange(range.from, range.to, { severity: { $in: ['HIGH', 'CRITICAL'] } }),
     ]);
     return {
-      ...base, // Phase 2 fields (clients, users, gstVendors, activeVendorAssignments) — unchanged
+      ...base,
       range,
-      gstFilings: { pipeline: filingPipeline, openIssues, note: 'Current workflow state across all tenants (not date-filtered).' },
-      tallySync: { byStatus: tallyByStatus, note: 'Sync attempts started within the selected range, all tenants.' },
-      invoices: { byStatus: invoiceByStatus, note: 'Counts only (by invoiceDate in range), all tenants.' },
+      gstFilings: { pipeline: filingPipeline, openIssues, note: isAssistant ? 'Workflow state across your assigned clients.' : 'Current workflow state across all tenants (not date-filtered).' },
+      tallySync: { byStatus: tallyByStatus, note: isAssistant ? 'Sync attempts started within the selected range for assigned clients.' : 'Sync attempts started within the selected range, all tenants.' },
+      invoices: { byStatus: invoiceByStatus, note: isAssistant ? 'Counts only (by invoiceDate in range) for assigned clients.' : 'Counts only (by invoiceDate in range), all tenants.' },
       securityEvents: { total: securityTotal, highOrCritical: securityHigh, note: 'Recorded security events within the selected range.' },
     };
   }

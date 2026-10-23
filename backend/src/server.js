@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { logger } from './utils/logger.js';
 import { startTallyConnectorOfflineMonitor } from './jobs/tallyConnectorOfflineMonitor.js';
 
+// LauncherDesk ERP Server
 try {
   await connectDatabase();
 } catch (err) {

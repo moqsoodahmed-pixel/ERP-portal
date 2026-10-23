@@ -145,20 +145,21 @@ test('Phase 7: vendor portal, assignment lifecycle, and the full assignment-chai
     await api.patch(`/api/v1/clients/${A.tenant._id}/status`).set(m).send({ status: 'ACTIVE' });
   });
 
-  // ---- Client-side vendor visibility ------------------------------------------------------
-  await t.test('Client Admin sees their own assigned vendor, never another tenant\'s', async () => {
+  // ---- Client-side vendor abstraction ------------------------------------------------------
+  await t.test('Client Admin NEVER sees internal vendors (hidden from clients per LauncherDesk ERP architecture)', async () => {
     const aAdmin = h.bearer((await h.login(A.admin.email)).token);
     const mine = await api.get(`/api/v1/clients/${A.tenant._id}/vendors`).set(aAdmin);
     assert.equal(mine.status, 200);
-    assert.ok(mine.body.data.some((x) => x.status === 'ACTIVE'));
+    assert.deepEqual(mine.body.data, []);
 
     const bAdmin = h.bearer((await h.login(B.admin.email)).token);
     const bOwn = await api.get(`/api/v1/clients/${B.tenant._id}/vendors`).set(bAdmin);
     assert.equal(bOwn.status, 200);
-    // Even passing A's tenantId in the URL, a Client Admin only ever sees their OWN tenant's data (server-derived).
+    assert.deepEqual(bOwn.body.data, []);
+    // Even passing A's tenantId in the URL, a Client Admin only ever sees an empty array
     const spoofed = await api.get(`/api/v1/clients/${A.tenant._id}/vendors`).set(bAdmin);
     assert.equal(spoofed.status, 200);
-    assert.deepEqual(spoofed.body.data, bOwn.body.data);
+    assert.deepEqual(spoofed.body.data, []);
   });
 
   // ---- RBAC matrix for vendor permissions -------------------------------------------------

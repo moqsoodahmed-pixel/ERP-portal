@@ -41,26 +41,26 @@ describe('Phase 21 Client GST Billing Dashboard', () => {
     expect(screen.getByText(/October 2026/)).toBeInTheDocument();
   });
 
-  it('shows "Awaiting Vendor Processing" when no matching has run yet', async () => {
+  it('shows "Processing Pending" when no matching has run yet', async () => {
     mockGetByPath({ match: null });
     renderPage();
-    expect(await screen.findByText('Awaiting Vendor Processing')).toBeInTheDocument();
+    expect(await screen.findByText('Processing Pending')).toBeInTheDocument();
   });
 
-  it('shows "Vendor Processing Completed" only when matching is FULLY_MATCHED', async () => {
+  it('shows "Processing Completed" only when matching is FULLY_MATCHED', async () => {
     mockGetByPath({ match: { overallStatus: 'FULLY_MATCHED' } });
     renderPage();
-    expect(await screen.findByText('Vendor Processing Completed')).toBeInTheDocument();
+    expect(await screen.findByText('Processing Completed')).toBeInTheDocument();
   });
 
-  it('shows "Vendor Processing In Progress" for a PARTIAL_MATCH, never "Completed"', async () => {
+  it('shows "Processing In Progress" for a PARTIAL_MATCH, never "Completed"', async () => {
     mockGetByPath({ match: { overallStatus: 'PARTIAL_MATCH' } });
     renderPage();
-    expect(await screen.findByText('Vendor Processing In Progress')).toBeInTheDocument();
-    expect(screen.queryByText('Vendor Processing Completed')).toBeNull();
+    expect(await screen.findByText('Processing In Progress')).toBeInTheDocument();
+    expect(screen.queryByText('Processing Completed')).toBeNull();
   });
 
-  it('shows the empty state with no vendor document, never fake example data', async () => {
+  it('shows the empty state with no document, never fake example data', async () => {
     mockGetByPath({ finalDocuments: [] });
     renderPage();
     expect(await screen.findByText(/No final document available yet\./)).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe('Phase 21 Client GST Billing Dashboard', () => {
     mockGetByPath({ finalDocuments: [{ id: 'd1', fileName: 'GST Final Bill.pdf', uploadedAt: '2026-10-08T00:00:00Z' }] });
     renderPage();
     expect(await screen.findByText('GST Final Bill.pdf')).toBeInTheDocument();
-    expect(screen.getByText(/Uploaded by GST Vendor/)).toBeInTheDocument();
+    expect(screen.getByText(/Verified by LauncherDesk/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View Document' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument();
   });

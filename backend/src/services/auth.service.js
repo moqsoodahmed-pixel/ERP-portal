@@ -136,7 +136,9 @@ export class AuthService {
     await this.#assertAccountUsable(user);
     return {
       userId: String(user._id), role: user.role, tenantId: user.tenantId ? String(user.tenantId) : null,
-      vendorId: user.vendorId ? String(user.vendorId) : null, permissions: await this.permissionService.resolve(user), user,
+      vendorId: user.vendorId ? String(user.vendorId) : null,
+      assignedTenantIds: (user.assignedTenantIds || []).map(String),
+      permissions: await this.permissionService.resolve(user), user,
     };
   }
 
@@ -144,6 +146,7 @@ export class AuthService {
     return {
       id: String(user._id), name: user.name, email: user.email, role: user.role,
       tenantId: user.tenantId ? String(user.tenantId) : null, vendorId: user.vendorId ? String(user.vendorId) : null,
+      assignedTenantIds: (user.assignedTenantIds || []).map(String),
       permissions: [...(await this.permissionService.resolve(user))].sort(),
     };
   }

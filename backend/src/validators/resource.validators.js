@@ -38,6 +38,9 @@ export const letterheadDetailsFields = {
 export const businessProfileCreate = z.object({
   displayName: z.string().trim().min(1).max(200),
   gstin: gstinSchema.optional(),
+  pan: panSchema.optional(),
+  msme: z.string().trim().max(50).optional(),
+  cin: z.string().trim().max(50).optional(),
   address: addressInput.optional(),
   mobile: z.string().trim().max(20).optional(),
   email: emailSchema.optional(),
@@ -48,8 +51,57 @@ export const businessProfileCreate = z.object({
 export const businessProfileUpdate = businessProfileCreate.partial().extend(letterheadDetailsFields).strict()
   .refine((v) => Object.keys(v).length > 0, 'At least one field is required');
 
-const LOGO_BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
-const ALLOWED_LOGO_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+export const letterheadTemplateCreate = z.object({
+  name: z.string().trim().min(1).max(100),
+  isDefault: z.boolean().optional(),
+  margins: z.object({
+    top: z.number().min(0).max(150).optional(),
+    bottom: z.number().min(0).max(150).optional(),
+    left: z.number().min(0).max(150).optional(),
+    right: z.number().min(0).max(150).optional(),
+  }).optional(),
+  colors: z.object({
+    primary: z.string().max(30).optional(),
+    secondary: z.string().max(30).optional(),
+    accent: z.string().max(30).optional(),
+  }).optional(),
+  typography: z.object({
+    fontFamily: z.string().max(50).optional(),
+    headingAlignment: z.enum(['left', 'center', 'right']).optional(),
+  }).optional(),
+  pan: panSchema.optional(),
+  msme: z.string().trim().max(50).optional(),
+  cin: z.string().trim().max(50).optional(),
+  watermarkSettings: z.object({
+    opacity: z.number().min(0.01).max(1).optional(),
+    scale: z.number().min(50).max(600).optional(),
+  }).optional(),
+  logoFileId: objectIdSchema.nullable().optional(),
+  backgroundFileId: objectIdSchema.nullable().optional(),
+  watermarkFileId: objectIdSchema.nullable().optional(),
+  signatureFileId: objectIdSchema.nullable().optional(),
+  sealFileId: objectIdSchema.nullable().optional(),
+  qrCodeFileId: objectIdSchema.nullable().optional(),
+  bankDetails: bankDetailsInput.nullable().optional(),
+  footerText: z.string().max(1000).nullable().optional(),
+  declaration: z.string().max(1000).nullable().optional(),
+  defaultTermsAndConditions: z.string().max(2000).nullable().optional(),
+  authorizedSignatoryName: z.string().trim().max(120).nullable().optional(),
+  authorizedSignatoryDesignation: z.string().trim().max(120).nullable().optional(),
+  customSections: z.array(z.object({
+    id: z.string().min(1).max(50),
+    title: z.string().trim().min(1).max(100),
+    content: z.string().max(2000),
+    order: z.number().optional(),
+    visible: z.boolean().optional(),
+  })).optional(),
+  historyNote: z.string().max(200).optional(),
+}).strict();
+
+export const letterheadTemplateUpdate = letterheadTemplateCreate.partial().strict();
+
+const LOGO_BASE64_RE = /^[A-Za-z0-9+/=\s]+$/;
+const ALLOWED_LOGO_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
 /** 2MB per logo, base64-encoded in JSON — same no-multipart-stack constraint as billIntake.validators.js. */
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 export const MAX_LOGO_FILE_BYTES = MAX_LOGO_BYTES;

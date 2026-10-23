@@ -57,7 +57,16 @@ export function createV1Router({ container, access, limiters }) {
   };
   // The ONLY places a report scope is built: from server-resolved req.tenantId, or (Master-only routes) platform-wide.
   const tenantReportScope = (req) => ({ tenantIds: [String(req.tenantId)] });
-  const masterReportScope = (req) => (req.query.clientId ? { tenantIds: [String(req.query.clientId)] } : { allTenants: true });
+  const masterReportScope = (req) => {
+    if (req.auth?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (req.auth.assignedTenantIds || []).map(String);
+      if (req.query.clientId) {
+        return assigned.includes(String(req.query.clientId)) ? { tenantIds: [String(req.query.clientId)] } : { tenantIds: [] };
+      }
+      return { tenantIds: assigned };
+    }
+    return req.query.clientId ? { tenantIds: [String(req.query.clientId)] } : { allTenants: true };
+  };
   const dashboards = createDashboardController(services);
   const tenantReports = createReportController(services, tenantReportScope);
   const masterReports = createReportController(services, masterReportScope, { crossTenantOnly: true });
@@ -75,32 +84,32 @@ export function createV1Router({ container, access, limiters }) {
   authRouter.post('/change-password', limiters.passwordReset, authenticate, validate({ body: changePasswordBody }), auth.changePassword);
   r.use('/auth', authRouter);
 
-  // ---- clients (Master Admin only; platform-level)
+  // ---- clients (Master Admin & Assistant Admin; scoped)
   const clients = createClientController(services);
   const vendors = createVendorController(services);
   const clientRouter = Router();
   // Vendor view of an assigned client's invoices (requires an ACTIVE assignment; everyone else gets 403).
   clientRouter.get('/:tenantId/invoices', authenticate, requireVendorAssignment('tenantId'), can('invoices.view'),
     validate({ params: z.object({ tenantId: objectIdSchema }), query: listQuery }), vendors.clientInvoices);
-  // Client Admin's read-only view of the vendor(s) assigned to THEIR OWN tenant (tenantId is server-derived, not the URL param).
+  // Client Admin's view of vendors: returns [] so client never sees third-party vendors.
   clientRouter.get('/:tenantId/vendors', authenticate, resolveTenant, can('business.view'),
     validate({ params: z.object({ tenantId: objectIdSchema }) }), vendors.clientVendors);
-  clientRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN));
+  clientRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN, ROLES.MASTER_ASSISTANT_ADMIN));
   clientRouter.get('/stats', can('clients.view'), clients.stats);
   clientRouter.get('/', can('clients.view'), validate({ query: v.clientListQuery }), clients.list);
-  clientRouter.post('/', can('clients.create'), validate({ body: v.clientCreate }), clients.create);
+  clientRouter.post('/', requireRole(ROLES.MASTER_ADMIN), can('clients.create'), validate({ body: v.clientCreate }), clients.create);
   clientRouter.get('/:id', can('clients.view'), validate({ params: idParams }), clients.get);
   clientRouter.patch('/:id', can('clients.update'), validate({ params: idParams, body: v.clientUpdate }), clients.update);
-  clientRouter.patch('/:id/status', can('clients.update'), validate({ params: idParams, body: v.clientStatus }), clients.setStatus);
+  clientRouter.patch('/:id/status', requireRole(ROLES.MASTER_ADMIN), can('clients.update'), validate({ params: idParams, body: v.clientStatus }), clients.setStatus);
   clientRouter.get('/:id/summary', can('clients.view'), validate({ params: idParams }), clients.summary);
   r.use('/clients', clientRouter);
 
-  // ---- master dashboard (Master Admin only; platform-level aggregates, no fake financial data)
+  // ---- master dashboard (Master Admin & Assistant Admin; scoped)
   const masterRouter = Router();
-  masterRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN));
+  masterRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN, ROLES.MASTER_ASSISTANT_ADMIN));
   // Phase 9 extends (not replaces) the Phase 2 response: same route, same Phase 2 fields, plus filing/Tally/security aggregates.
   masterRouter.get('/dashboard', can('platform.view'), validate({ query: dashboardQuery }), dashboards.master);
-  // Cross-tenant reports (filing status / filing issues only). Master Admin role is enforced by masterRouter.use above.
+  // Cross-tenant reports (filing status / filing issues only).
   masterRouter.get('/reports', can('reports.view'), masterReports.catalog);
   masterRouter.get('/reports/:type', validate({ params: reportTypeParams, query: masterReportQuery }), reportPerms(false, { crossTenantOnly: true }), masterReports.run);
   masterRouter.get('/reports/:type/export', validate({ params: reportTypeParams, query: masterReportQuery }), reportPerms(true, { crossTenantOnly: true }), masterReports.exportCsv);
@@ -139,6 +148,15 @@ export function createV1Router({ container, access, limiters }) {
     r.post(`/business-profile/${path}`, ...tenantScoped('business.update'), validate({ body: uploadSchema }), businessProfile[uploadFn]);
     r.delete(`/business-profile/${path}`, ...tenantScoped('business.update'), businessProfile[removeFn]);
   }
+
+  // ---- Letterhead Builder Templates CRUD
+  r.get('/business-profile/letterheads', ...tenantScoped('business.view'), businessProfile.listLetterheads);
+  r.post('/business-profile/letterheads', ...tenantScoped('business.update'), validate({ body: v.letterheadTemplateCreate }), businessProfile.createLetterhead);
+  r.get('/business-profile/letterheads/:id', ...tenantScoped('business.view'), validate({ params: idParams }), businessProfile.getLetterhead);
+  r.patch('/business-profile/letterheads/:id', ...tenantScoped('business.update'), validate({ params: idParams, body: v.letterheadTemplateUpdate }), businessProfile.updateLetterhead);
+  r.post('/business-profile/letterheads/:id/duplicate', ...tenantScoped('business.update'), validate({ params: idParams }), businessProfile.duplicateLetterhead);
+  r.delete('/business-profile/letterheads/:id', ...tenantScoped('business.update'), validate({ params: idParams }), businessProfile.deleteLetterhead);
+  r.post('/business-profile/letterheads/:id/set-default', ...tenantScoped('business.update'), validate({ params: idParams }), businessProfile.setDefaultLetterhead);
 
   // ---- products / customers
   const products = createProductController(services);
@@ -191,11 +209,11 @@ export function createV1Router({ container, access, limiters }) {
   // Phase 19.3: read-only, cross-tenant GST Bill handoff view — tenant set is derived ONLY from the vendor's
   // own ACTIVE assignments (assignmentRepo), never from any id the frontend could supply.
   vendorRouter.get('/me/gst-bills', authenticate, requireRole(ROLES.GST_VENDOR), can('gst_bills.view'), validate({ query: listQuery }), gstBills.vendorList);
-  vendorRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN));
+  vendorRouter.use(authenticate, requireRole(ROLES.MASTER_ADMIN, ROLES.MASTER_ASSISTANT_ADMIN));
   vendorRouter.get('/', can('vendors.view'), validate({ query: listQuery }), vendors.list);
-  vendorRouter.post('/', can('vendors.create'), validate({ body: v.vendorCreate }), vendors.create);
+  vendorRouter.post('/', requireRole(ROLES.MASTER_ADMIN), can('vendors.create'), validate({ body: v.vendorCreate }), vendors.create);
   vendorRouter.get('/:vendorId', can('vendors.view'), validate({ params: z.object({ vendorId: objectIdSchema }) }), vendors.get);
-  vendorRouter.patch('/:vendorId', can('vendors.update'), validate({ params: z.object({ vendorId: objectIdSchema }), body: v.vendorUpdate }), vendors.update);
+  vendorRouter.patch('/:vendorId', requireRole(ROLES.MASTER_ADMIN), can('vendors.update'), validate({ params: z.object({ vendorId: objectIdSchema }), body: v.vendorUpdate }), vendors.update);
   vendorRouter.get('/:vendorId/assignments', can('vendors.view'), validate({ params: z.object({ vendorId: objectIdSchema }) }), vendors.listAssignments);
   vendorRouter.post('/:vendorId/assignments', can('vendors.assign'), validate({ params: z.object({ vendorId: objectIdSchema }), body: v.assignmentCreate }), vendors.assign);
   vendorRouter.patch('/:vendorId/assignments/:assignmentId', can('vendors.assign'),
@@ -336,8 +354,8 @@ export function createV1Router({ container, access, limiters }) {
   billRouter.post('/:id/documents', resolveTenantForBill, can('bills.documents.upload'), validate({ params: idParams, body: billDocumentsUpload }), bills.addDocuments);
   billRouter.get('/:id/documents/:docId', resolveTenantForBill, can('bills.documents.view'), validate({ params: idParams.extend({ docId: objectIdSchema }) }), bills.getDocument);
   billRouter.post('/:id/submit', resolveTenantForBill, can('bills.submit'), validate({ params: idParams }), bills.submit);
-  billRouter.post('/:id/review', resolveTenantForBill, requireRole(ROLES.MASTER_ADMIN), can('bills.review'), validate({ params: idParams }), bills.review);
-  billRouter.post('/:id/reject', resolveTenantForBill, requireRole(ROLES.MASTER_ADMIN), can('bills.reject'), validate({ params: idParams, body: billReject }), bills.reject);
+  billRouter.post('/:id/review', resolveTenantForBill, requireRole(ROLES.MASTER_ADMIN, ROLES.MASTER_ASSISTANT_ADMIN), can('bills.review'), validate({ params: idParams }), bills.review);
+  billRouter.post('/:id/reject', resolveTenantForBill, requireRole(ROLES.MASTER_ADMIN, ROLES.MASTER_ASSISTANT_ADMIN), can('bills.reject'), validate({ params: idParams, body: billReject }), bills.reject);
   billRouter.post('/:id/tally/processing', resolveTenantForBill, can('bills.tally_manage'), validate({ params: idParams }), bills.tallyProcessingStarted);
   billRouter.post('/:id/tally/synced', resolveTenantForBill, can('bills.tally_manage'), validate({ params: idParams, body: billTallySynced }), bills.tallySynced);
   billRouter.post('/:id/tally/failed', resolveTenantForBill, can('bills.tally_manage'), validate({ params: idParams, body: billTallyFailed }), bills.tallyFailed);

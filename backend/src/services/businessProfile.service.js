@@ -201,4 +201,173 @@ export class BusinessProfileService {
   uploadQrCode(ctx, file) { return this.#uploadAsset(ctx, 'QR_CODE', file); }
   removeQrCode(ctx) { return this.#removeAsset(ctx, 'QR_CODE'); }
   getQrCode(ctx) { return this.#getAsset(ctx, 'QR_CODE'); }
+
+  // ---------------------------------------------------------------- Letterhead Templates (Builder)
+  async listLetterheads(ctx) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    return profile.letterheads || [];
+  }
+
+  async getLetterhead(ctx, id) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    const template = (profile.letterheads || []).find((t) => String(t._id) === String(id));
+    if (!template) throw new NotFoundError('Letterhead template not found');
+    return template;
+  }
+
+  async createLetterhead(ctx, dto) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    const letterheads = [...(profile.letterheads || [])];
+    const isFirst = letterheads.length === 0;
+    const shouldBeDefault = dto.isDefault ?? isFirst;
+    if (shouldBeDefault) {
+      letterheads.forEach((lh) => { lh.isDefault = false; });
+    }
+    const newTemplate = {
+      ...dto,
+      isDefault: shouldBeDefault,
+      history: [{
+        version: 1,
+        savedAt: new Date(),
+        savedBy: ctx.actor.id,
+        note: 'Initial creation',
+      }],
+    };
+    letterheads.push(newTemplate);
+    const updated = await this.businessProfileRepo.updateById(ctx.tenantId, profile._id, { letterheads }, ctx.actor.id);
+    const createdTemplate = updated.letterheads[updated.letterheads.length - 1];
+    await this.auditService.record(ctx, {
+      action: AUDIT_ACTIONS.BUSINESS_PROFILE_UPDATED,
+      resourceType: 'BusinessProfile',
+      resourceId: profile._id,
+      metadata: { fields: ['letterheads.create'], templateId: createdTemplate._id },
+    });
+    return createdTemplate;
+  }
+
+  async updateLetterhead(ctx, id, patch) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    const letterheads = [...(profile.letterheads || [])];
+    const index = letterheads.findIndex((t) => String(t._id) === String(id));
+    if (index === -1) throw new NotFoundError('Letterhead template not found');
+
+    const current = letterheads[index];
+    if (patch.isDefault) {
+      letterheads.forEach((lh) => { lh.isDefault = false; });
+    }
+    const currentVersion = current.history?.length ? (current.history[current.history.length - 1]?.version || 1) : 1;
+    const history = [
+      ...(current.history || []),
+      {
+        version: currentVersion + 1,
+        savedAt: new Date(),
+        savedBy: ctx.actor.id,
+        note: patch.historyNote || 'Template updated',
+      },
+    ];
+
+    const currentObj = typeof current.toObject === 'function' ? current.toObject() : { ...current };
+    const updatedTemplate = {
+      ...currentObj,
+      ...patch,
+      _id: current._id,
+      history,
+    };
+    delete updatedTemplate.historyNote;
+    letterheads[index] = updatedTemplate;
+
+    const updated = await this.businessProfileRepo.updateById(ctx.tenantId, profile._id, { letterheads }, ctx.actor.id);
+    await this.auditService.record(ctx, {
+      action: AUDIT_ACTIONS.BUSINESS_PROFILE_UPDATED,
+      resourceType: 'BusinessProfile',
+      resourceId: profile._id,
+      metadata: { fields: ['letterheads.update'], templateId: id },
+    });
+    return updated.letterheads[index];
+  }
+
+  async duplicateLetterhead(ctx, id) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    const letterheads = [...(profile.letterheads || [])];
+    const source = letterheads.find((t) => String(t._id) === String(id));
+    if (!source) throw new NotFoundError('Letterhead template not found');
+
+    const sourceObj = typeof source.toObject === 'function' ? source.toObject() : { ...source };
+    delete sourceObj._id;
+    delete sourceObj.createdAt;
+    delete sourceObj.updatedAt;
+
+    const duplicated = {
+      ...sourceObj,
+      name: `${source.name} (Copy)`,
+      isDefault: false,
+      history: [{
+        version: 1,
+        savedAt: new Date(),
+        savedBy: ctx.actor.id,
+        note: `Duplicated from ${source.name}`,
+      }],
+    };
+    letterheads.push(duplicated);
+    const updated = await this.businessProfileRepo.updateById(ctx.tenantId, profile._id, { letterheads }, ctx.actor.id);
+    const createdTemplate = updated.letterheads[updated.letterheads.length - 1];
+    await this.auditService.record(ctx, {
+      action: AUDIT_ACTIONS.BUSINESS_PROFILE_UPDATED,
+      resourceType: 'BusinessProfile',
+      resourceId: profile._id,
+      metadata: { fields: ['letterheads.duplicate'], sourceId: id, newTemplateId: createdTemplate._id },
+    });
+    return createdTemplate;
+  }
+
+  async deleteLetterhead(ctx, id) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    const letterheads = [...(profile.letterheads || [])];
+    const index = letterheads.findIndex((t) => String(t._id) === String(id));
+    if (index === -1) throw new NotFoundError('Letterhead template not found');
+
+    const target = letterheads[index];
+    letterheads.splice(index, 1);
+    if (target.isDefault && letterheads.length > 0) {
+      letterheads[0].isDefault = true;
+    }
+    await this.businessProfileRepo.updateById(ctx.tenantId, profile._id, { letterheads }, ctx.actor.id);
+    await this.auditService.record(ctx, {
+      action: AUDIT_ACTIONS.BUSINESS_PROFILE_UPDATED,
+      resourceType: 'BusinessProfile',
+      resourceId: profile._id,
+      metadata: { fields: ['letterheads.delete'], templateId: id },
+    });
+    return { success: true };
+  }
+
+  async setDefaultLetterhead(ctx, id) {
+    const profile = await this.businessProfileRepo.findByTenant(ctx.tenantId);
+    if (!profile) throw new NotFoundError('Business profile has not been set up yet');
+    const letterheads = [...(profile.letterheads || [])];
+    let found = false;
+    letterheads.forEach((lh) => {
+      if (String(lh._id) === String(id)) {
+        lh.isDefault = true;
+        found = true;
+      } else {
+        lh.isDefault = false;
+      }
+    });
+    if (!found) throw new NotFoundError('Letterhead template not found');
+    const updated = await this.businessProfileRepo.updateById(ctx.tenantId, profile._id, { letterheads }, ctx.actor.id);
+    await this.auditService.record(ctx, {
+      action: AUDIT_ACTIONS.BUSINESS_PROFILE_UPDATED,
+      resourceType: 'BusinessProfile',
+      resourceId: profile._id,
+      metadata: { fields: ['letterheads.setDefault'], templateId: id },
+    });
+    return updated.letterheads.find((lh) => String(lh._id) === String(id));
+  }
 }

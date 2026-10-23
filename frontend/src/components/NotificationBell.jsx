@@ -22,7 +22,13 @@ const ROUTE_PERMISSIONS = [
   [/^\/vendor\/filings\//, 'gst_filings.view'],
   [/^\/vendor\/clients$/, 'gst.view'],
 ];
-const AREA = { MASTER_ADMIN: '/master/', CLIENT_ADMIN: '/client/', CLIENT_USER: '/client/', GST_VENDOR: '/vendor/' };
+const AREA = {
+  MASTER_ADMIN: '/master/',
+  MASTER_ASSISTANT_ADMIN: '/master/',
+  CLIENT_ADMIN: '/client/',
+  CLIENT_USER: '/client/',
+  GST_VENDOR: '/vendor/',
+};
 
 export function linkFor(user, actionUrl) {
   if (!actionUrl || !user || !actionUrl.startsWith(AREA[user.role] ?? '\u0000')) return null;

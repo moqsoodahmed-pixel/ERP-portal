@@ -9,6 +9,7 @@ const enumOf = (o) => Object.values(o);
 const userSchema = new Schema({
   tenantId: { type: ObjectId, ref: 'Tenant', default: null },
   vendorId: { type: ObjectId, ref: 'Vendor', default: null },
+  assignedTenantIds: { type: [{ type: ObjectId, ref: 'Tenant' }], default: [] },
   name: { type: String, required: true, trim: true, maxlength: 120 },
   email: { type: String, required: true, lowercase: true, trim: true, maxlength: 254 },
   phone: { type: String, trim: true, maxlength: 20 },
@@ -28,6 +29,7 @@ userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ tenantId: 1, status: 1 });
 userSchema.index({ tenantId: 1, createdAt: -1 });
 userSchema.index({ vendorId: 1 }, { sparse: true });
+userSchema.index({ assignedTenantIds: 1 });
 
 const roleSchema = new Schema({
   tenantId: { type: ObjectId, ref: 'Tenant', default: null },
@@ -78,9 +80,64 @@ const bankDetailsSchema = new Schema({
   branch: { type: String, trim: true, maxlength: 200 },
 }, { _id: false });
 
+const letterheadTemplateSchema = new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 100 },
+  isDefault: { type: Boolean, default: false },
+  margins: {
+    top: { type: Number, default: 36 },
+    bottom: { type: Number, default: 36 },
+    left: { type: Number, default: 36 },
+    right: { type: Number, default: 36 },
+  },
+  colors: {
+    primary: { type: String, default: '#0f172a' },
+    secondary: { type: String, default: '#64748b' },
+    accent: { type: String, default: '#2563eb' },
+  },
+  typography: {
+    fontFamily: { type: String, default: 'Helvetica' },
+    headingAlignment: { type: String, enum: ['left', 'center', 'right'], default: 'left' },
+  },
+  pan: { type: String, uppercase: true, match: PAN_REGEX },
+  msme: { type: String, trim: true, maxlength: 50 },
+  cin: { type: String, trim: true, maxlength: 50 },
+  watermarkSettings: {
+    opacity: { type: Number, default: 0.12, min: 0.01, max: 1 },
+    scale: { type: Number, default: 260 },
+  },
+  logoFileId: { type: ObjectId, ref: 'FileMetadata' },
+  backgroundFileId: { type: ObjectId, ref: 'FileMetadata' },
+  watermarkFileId: { type: ObjectId, ref: 'FileMetadata' },
+  signatureFileId: { type: ObjectId, ref: 'FileMetadata' },
+  sealFileId: { type: ObjectId, ref: 'FileMetadata' },
+  qrCodeFileId: { type: ObjectId, ref: 'FileMetadata' },
+  bankDetails: bankDetailsSchema,
+  footerText: { type: String, maxlength: 1000 },
+  declaration: { type: String, maxlength: 1000 },
+  defaultTermsAndConditions: { type: String, maxlength: 2000 },
+  authorizedSignatoryName: { type: String, trim: true, maxlength: 120 },
+  authorizedSignatoryDesignation: { type: String, trim: true, maxlength: 120 },
+  customSections: [{
+    id: { type: String, required: true },
+    title: { type: String, required: true },
+    content: { type: String, default: '' },
+    order: { type: Number, default: 0 },
+    visible: { type: Boolean, default: true },
+  }],
+  history: [{
+    version: { type: Number, default: 1 },
+    savedAt: { type: Date, default: Date.now },
+    savedBy: { type: ObjectId, ref: 'User' },
+    note: String,
+  }],
+}, { timestamps: true });
+
 const businessProfileSchema = new Schema({
   displayName: { type: String, required: true },
   gstin: { type: String, uppercase: true, match: GSTIN_REGEX },
+  pan: { type: String, uppercase: true, match: PAN_REGEX },
+  msme: { type: String, trim: true, maxlength: 50 },
+  cin: { type: String, trim: true, maxlength: 50 },
   address: addressSchema,
   mobile: String,
   email: { type: String, lowercase: true },
@@ -100,6 +157,7 @@ const businessProfileSchema = new Schema({
   authorizedSignatoryName: { type: String, trim: true, maxlength: 120 },
   authorizedSignatoryDesignation: { type: String, trim: true, maxlength: 120 },
   offerings: { type: [String], enum: ['PRODUCT', 'SERVICE'], default: ['PRODUCT'] },
+  letterheads: { type: [letterheadTemplateSchema], default: [] },
 }, { timestamps: true });
 tenantPlugin(businessProfileSchema, { unique: true });
 

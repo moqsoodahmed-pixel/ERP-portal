@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../../services/apiClient.js';
 import {
   PageHeader,
@@ -43,8 +43,10 @@ function previewLine(line, products) {
 export default function InvoiceFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const duplicateFrom = searchParams.get('duplicateFrom');
   const isEdit = Boolean(id);
-  const [loading, setLoading] = useState(isEdit);
+  const [loading, setLoading] = useState(isEdit || Boolean(duplicateFrom));
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [customerId, setCustomerId] = useState('');
@@ -63,20 +65,32 @@ export default function InvoiceFormPage() {
   }, []);
 
   useEffect(() => {
-    if (!isEdit) return;
-    api.get(`/invoices/${id}`).then(({ data }) => {
-      if (data.invoiceStatus !== 'DRAFT') { navigate(`/client/invoices/${id}`); return; }
-      setCustomerId(data.customerId);
-      setInvoiceDate(data.invoiceDate?.slice(0, 10) ?? invoiceDate);
-      setDueDate(data.dueDate?.slice(0, 10) ?? '');
-      setGstApplicable(data.gstApplicable);
-      setInterState(data.interState);
-      setNotes(data.notes ?? '');
-      setLines(data.items.map((it) => ({ productId: it.productId, quantity: String(it.quantity), discount: String(it.discount ?? 0) })));
-      setLoading(false);
-    }).catch((err) => { setError(err.message ?? 'Could not load invoice'); setLoading(false); });
+    if (isEdit) {
+      api.get(`/invoices/${id}`).then(({ data }) => {
+        if (data.invoiceStatus !== 'DRAFT') { navigate(`/client/invoices/${id}`); return; }
+        setCustomerId(data.customerId);
+        setInvoiceDate(data.invoiceDate?.slice(0, 10) ?? invoiceDate);
+        setDueDate(data.dueDate?.slice(0, 10) ?? '');
+        setGstApplicable(data.gstApplicable);
+        setInterState(data.interState);
+        setNotes(data.notes ?? '');
+        setLines(data.items.map((it) => ({ productId: it.productId, quantity: String(it.quantity), discount: String(it.discount ?? 0) })));
+        setLoading(false);
+      }).catch((err) => { setError(err.message ?? 'Could not load invoice'); setLoading(false); });
+    } else if (duplicateFrom) {
+      api.get(`/invoices/${duplicateFrom}`).then(({ data }) => {
+        setCustomerId(data.customerId);
+        setGstApplicable(data.gstApplicable);
+        setInterState(data.interState);
+        setNotes(data.notes ? `Duplicate of ${data.invoiceNumber}: ${data.notes}` : `Duplicate of ${data.invoiceNumber}`);
+        if (data.items?.length) {
+          setLines(data.items.map((it) => ({ productId: it.productId, quantity: String(it.quantity), discount: String(it.discount ?? 0) })));
+        }
+        setLoading(false);
+      }).catch(() => setLoading(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, duplicateFrom]);
 
   const setLine = (idx, patch) => setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   const addLine = () => setLines((ls) => [...ls, { ...blankLine }]);

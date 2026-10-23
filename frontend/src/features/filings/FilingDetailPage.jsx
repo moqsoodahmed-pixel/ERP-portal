@@ -93,7 +93,7 @@ function SubmissionInfoForm({ filing, canEdit, onSave }) {
     <section className="card">
       <h2>Submission info <span className="badge badge--neutral">Manually recorded</span></h2>
       <p className="muted">
-        This is entered by hand by the vendor/admin after filing outside this system. It is NEVER verified against
+        This is recorded after filing outside this system. It is NEVER verified against
         a government system — there is no GST portal integration in this product.
       </p>
       <dl className="definition-list">

@@ -132,7 +132,8 @@ test('Phase 9: notifications — generation from service events, idempotency, re
     const assign = await api.post(`/api/v1/vendors/${vendor._id}/assignments`).set(m).send({ tenantId: String(B.tenant._id) });
     assert.equal(assign.status, 201);
     assert.ok(forUser(vendorUser, 'VENDOR_ASSIGNMENT_CHANGED').some((n) => String(n.tenantId) === String(B.tenant._id)));
-    assert.equal(forUser(B.admin, 'VENDOR_ASSIGNMENT_CHANGED').length, 1);
+    // ERP Architecture invariant: Client Admin is never notified of internal vendor assignment
+    assert.equal(forUser(B.admin, 'VENDOR_ASSIGNMENT_CHANGED').length, 0);
 
     await api.patch(`/api/v1/clients/${B.tenant._id}/status`).set(m).send({ status: 'SUSPENDED', reason: 'Phase 9 notification test' });
     await api.patch(`/api/v1/clients/${B.tenant._id}/status`).set(m).send({ status: 'SUSPENDED', reason: 'repeat, no change' });

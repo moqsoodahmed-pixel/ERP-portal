@@ -38,8 +38,9 @@ export class UserRepository extends TenantRepository {
 
 export class TenantsRepository extends BaseRepository {
   findByCode(code) { return this.model.findOne({ tenantCode: code }).lean(); }
-  async findPage({ search, status, page, limit, skip, sort = { createdAt: -1 } }) {
+  async findPage({ search, status, ids, page, limit, skip, sort = { createdAt: -1 } }) {
     const q = { isDeleted: { $ne: true } };
+    if (ids) q._id = { $in: ids };
     if (status) q.status = status;
     if (search) {
       const rx = { $regex: escapeRegex(String(search).slice(0, PAGINATION.MAX_SEARCH_LENGTH)), $options: 'i' };

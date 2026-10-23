@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { ROLES } from '../constants/roles.js';
 import { HomeRedirect, RequirePermission, RoleGuard } from './guards.jsx';
 import MasterAdminLayout from '../layouts/MasterAdminLayout.jsx';
@@ -14,6 +14,7 @@ import ProductFormPage from '../features/products/ProductFormPage.jsx';
 import CustomersPage from '../features/customers/CustomersPage.jsx';
 import CustomerFormPage from '../features/customers/CustomerFormPage.jsx';
 import BusinessProfilePage from '../features/business/BusinessProfilePage.jsx';
+import LetterheadBuilderPage from '../features/business/LetterheadBuilderPage.jsx';
 import InvoicesPage from '../features/invoices/InvoicesPage.jsx';
 import InvoiceFormPage from '../features/invoices/InvoiceFormPage.jsx';
 import InvoiceDetailPage from '../features/invoices/InvoiceDetailPage.jsx';
@@ -26,7 +27,6 @@ import VendorInvoiceDetailPage from '../features/vendors/VendorInvoiceDetailPage
 import VendorsAdminPage from '../features/vendors/VendorsAdminPage.jsx';
 import VendorDetailPage from '../features/vendors/VendorDetailPage.jsx';
 import CreateVendorPage from '../features/vendors/CreateVendorPage.jsx';
-import ClientGstVendorPage from '../features/vendors/ClientGstVendorPage.jsx';
 import VendorGstBillsPage from '../features/vendors/VendorGstBillsPage.jsx';
 import FilingListPage from '../features/filings/FilingListPage.jsx';
 import FilingDetailPage from '../features/filings/FilingDetailPage.jsx';
@@ -53,7 +53,7 @@ export default function AppRoutes() {
       <Route path="/auth/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
-      <Route path="/master" element={<RoleGuard roles={[ROLES.MASTER_ADMIN]}><MasterAdminLayout /></RoleGuard>}>
+      <Route path="/master" element={<RoleGuard roles={[ROLES.MASTER_ADMIN, ROLES.MASTER_ASSISTANT_ADMIN]}><MasterAdminLayout /></RoleGuard>}>
         <Route path="dashboard" element={<MasterDashboard />} />
         <Route path="clients" element={guarded('clients.view', <ClientsPage />)} />
         <Route path="clients/new" element={guarded('clients.create', <CreateClientPage />)} />
@@ -75,6 +75,7 @@ export default function AppRoutes() {
       <Route path="/client" element={<RoleGuard roles={CLIENT_ROLES}><ClientLayout /></RoleGuard>}>
         <Route path="dashboard" element={<ClientDashboard />} />
         <Route path="business" element={guarded('business.view', <BusinessProfilePage />)} />
+        <Route path="letterhead" element={guarded('business.view', <LetterheadBuilderPage />)} />
         <Route path="products" element={guarded('products.view', <ProductsPage />)} />
         <Route path="products/new" element={guarded('products.create', <ProductFormPage />)} />
         <Route path="products/:id" element={guarded('products.view', <ProductFormPage />)} />
@@ -86,13 +87,13 @@ export default function AppRoutes() {
         <Route path="invoices/:id/edit" element={guarded('invoices.update', <InvoiceFormPage />)} />
         <Route path="invoices/:id" element={guarded('invoices.view', <InvoiceDetailPage />)} />
         <Route path="gst" element={guarded('gst.view', <GstPage />)} />
-        <Route path="gst-filings" element={guarded('gst_filings.view', <FilingListPage basePath="/client/gst-filings" title="GST filing workflow" subtitle="Track your GST filings, from new filing to filed, alongside your assigned GST vendor's work." showNewFilingButton />)} />
+        <Route path="gst-filings" element={guarded('gst_filings.view', <FilingListPage basePath="/client/gst-filings" title="GST filing workflow" subtitle="Track your GST filings, from new filing to filed, with LauncherDesk." showNewFilingButton />)} />
         <Route path="gst-filings/new" element={guarded('gst_filings.create', <NewFilingPage />)} />
         <Route path="gst-filings/:id/bill" element={guarded('gst_bills.view', <BillBuilderPage />)} />
         <Route path="gst-filings/:id/billing" element={guarded('gst_bills.view', <GstBillingDashboardPage />)} />
         <Route path="gst-filings/:id" element={guarded('gst_filings.view', <FilingDetailPage />)} />
         <Route path="tally" element={guarded('tally.view', <TallyPage />)} />
-        <Route path="gst-vendor" element={guarded('business.view', <ClientGstVendorPage />)} />
+        <Route path="gst-vendor" element={<Navigate to="/client/gst" replace />} />
         <Route path="reports" element={guarded('reports.view', <ReportsPage mode="tenant" />)} />
         <Route path="bills" element={guarded('bills.view', <BillListPage basePath="/client/bills" title="My bills" subtitle="Upload daily bills and supporting documents; track their status through to Tally processing." showCreate />)} />
         <Route path="bills/:id" element={guarded('bills.view', <BillDetailPage />)} />

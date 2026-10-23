@@ -53,10 +53,14 @@ export class ClientService {
     return { tenant, adminUser: adminUser && { id: adminUser._id, email: adminUser.email, name: adminUser.name, status: adminUser.status } };
   }
 
-  async list(query) {
+  async list(query, ctx) {
     const p = parsePagination(query);
+    const ids = ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN
+      ? (ctx.actor.assignedTenantIds || [])
+      : undefined;
     const result = await this.tenantRepo.findPage({
       ...p,
+      ids,
       search: query.search,
       status: query.status,
       sort: parseSort(query.sort, ['businessName', 'tenantCode', 'createdAt', 'status']),
@@ -64,21 +68,25 @@ export class ClientService {
     return { items: result.items, pagination: buildPageMeta(p, result.total) };
   }
 
-  async get(id) {
+  async get(id, ctx) {
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const assigned = (ctx.actor.assignedTenantIds || []).map(String);
+      if (!assigned.includes(String(id))) throw new NotFoundError('Client not found');
+    }
     const tenant = await this.tenantRepo.findById(id);
     if (!tenant || tenant.isDeleted) throw new NotFoundError('Client not found');
     return tenant;
   }
 
   async update(ctx, id, patch) {
-    await this.get(id);
+    await this.get(id, ctx);
     const updated = await this.tenantRepo.updateById(id, patch);
     await this.auditService.record(ctx, { action: AUDIT_ACTIONS.TENANT_UPDATED, resourceType: 'Tenant', resourceId: id, tenantId: id, metadata: { fields: Object.keys(patch) } });
     return updated;
   }
 
   async setStatus(ctx, id, status, reason) {
-    const current = await this.get(id);
+    const current = await this.get(id, ctx);
     const updated = await this.tenantRepo.updateById(id, { status });
     await this.auditService.record(ctx, {
       action: AUDIT_ACTIONS.TENANT_STATUS_CHANGED, resourceType: 'Tenant', resourceId: id, tenantId: id, metadata: { previous: current.status, next: status, reason: reason ?? null },
@@ -87,14 +95,22 @@ export class ClientService {
     return updated;
   }
 
-  async stats() {
+  async stats(ctx) {
+    if (ctx?.actor?.role === ROLES.MASTER_ASSISTANT_ADMIN) {
+      const ids = (ctx.actor.assignedTenantIds || []).map(String);
+      const entries = await Promise.all(Object.values(TENANT_STATUS).map(async (s) => {
+        const count = await this.tenantRepo.model.countDocuments({ status: s, isDeleted: { $ne: true }, _id: { $in: ids } });
+        return [s, count];
+      }));
+      return { clientsByStatus: Object.fromEntries(entries) };
+    }
     const entries = await Promise.all(Object.values(TENANT_STATUS).map(async (s) => [s, await this.tenantRepo.countByStatus(s)]));
     return { clientsByStatus: Object.fromEntries(entries) };
   }
 
   /** Per-client summary for the Client Details page: user counts by status, plus vendor assignment count. */
-  async summary(id) {
-    await this.get(id);
+  async summary(id, ctx) {
+    await this.get(id, ctx);
     const [users, vendorAssignments] = await Promise.all([
       this.userRepo.countsByStatusForTenant(id),
       this.assignmentRepo?.countActiveForTenant ? this.assignmentRepo.countActiveForTenant(id) : null,

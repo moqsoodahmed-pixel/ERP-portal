@@ -133,7 +133,7 @@ export default function TallyMatchingPage() {
       {state.status === 'empty' && (
         <Card style={{ marginBottom: '1.25rem' }}>
           <p>Tally matching has not been run for this filing yet.</p>
-          {canRun ? <RunButton busy={busy} onRun={run} /> : <p className="muted">Ask your assigned GST vendor to run Tally matching.</p>}
+          {canRun ? <RunButton busy={busy} onRun={run} /> : <p className="muted">LauncherDesk is reviewing and verifying Tally matching for this filing.</p>}
         </Card>
       )}
 
