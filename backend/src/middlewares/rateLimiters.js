@@ -13,8 +13,11 @@ export function createRateLimiters(overrides = {}, { securityService } = {}) {
       // presented API key (one tenant's integration traffic cannot exhaust another's budget) with IP as
       // a secondary fallback for requests that omit the header entirely (caught by auth anyway, but still
       // worth bucketing separately from real keys).
-      keyGenerator: name === 'tallyPublicApi'
-        ? (req) => (req.get('x-tally-api-key') ? `key:${req.get('x-tally-api-key').slice(0, 24)}` : `ip:${ipKeyGenerator(req.ip)}`)
+      keyGenerator: name === 'tallyPublicApi' || name === 'tallyBillSync'
+        ? (req) => {
+          const key = req.get('x-api-key') || req.get('x-tally-api-key');
+          return key ? `key:${key.slice(0, 24)}` : `ip:${ipKeyGenerator(req.ip)}`;
+        }
         // Phase 16: keyed by the connector's OWN resolved identity (set by tallyConnectorAuth.authenticate
         // before this limiter in the middleware chain is irrelevant here — we key on the raw presented
         // secret's prefix, same non-reversible-but-stable approach as the Tally Public API limiter above,

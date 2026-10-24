@@ -15,7 +15,9 @@ export class AuthenticationError extends AppError {
   constructor(message = 'Authentication required', code = 'AUTHENTICATION_ERROR') { super(code, message, 401); }
 }
 export class AuthorizationError extends AppError {
-  constructor(message = 'You do not have permission to perform this action') { super('AUTHORIZATION_ERROR', message, 403); }
+  constructor(message = 'You do not have permission to perform this action', code = 'AUTHORIZATION_ERROR', details = []) {
+    super(code, message, 403, details);
+  }
 }
 export class ForbiddenError extends AuthorizationError {}
 export class TenantAccessError extends AppError {

@@ -4,6 +4,7 @@ import { ROLES } from '../constants/roles.js';
 import { TENANT_STATUS, USER_STATUS, AUDIT_ACTIONS } from '../constants/statuses.js';
 import { ID_PREFIX } from '../constants/pagination.js';
 import { formatCode } from '../utils/codes.js';
+import { generateCompanyCode } from '../utils/companyCode.js';
 import { parsePagination, parseSort, buildPageMeta } from '../utils/pagination.js';
 
 export class ClientService {
@@ -19,8 +20,13 @@ export class ClientService {
     const { admin, ...tenantData } = dto;
     if (admin && (await this.userRepo.findByEmail(admin.email))) throw new ConflictError('A user with this email already exists', 'EMAIL_IN_USE');
     const seq = await this.counterRepo.next(null, 'tenant');
+    const companyCode = tenantData.companyCode || (await generateCompanyCode(this.counterRepo, this.tenantRepo, tenantData.businessName));
     const tenant = await this.tenantRepo.create({
-      ...tenantData, tenantCode: formatCode(ID_PREFIX.tenant, seq), status: TENANT_STATUS.ACTIVE, createdBy: ctx.actor.id,
+      ...tenantData,
+      tenantCode: tenantData.tenantCode || formatCode(ID_PREFIX.tenant, seq),
+      companyCode,
+      status: TENANT_STATUS.ACTIVE,
+      createdBy: ctx.actor.id,
     });
 
     let adminUser;

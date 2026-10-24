@@ -51,7 +51,7 @@ export const DEFAULT_VOUCHER_TYPE = 'Sales';
  * do not add a scope speculatively.
  */
 export const TALLY_API_SCOPES = Object.freeze([
-  'tally:company:read', 'tally:customer:read', 'tally:product:read', 'tally:invoice:read', 'tally:sync',
+  'tally:company:read', 'tally:customer:read', 'tally:product:read', 'tally:invoice:read', 'tally:sync', 'tally:bill:sync',
 ]);
 export const TALLY_API_KEY_PREFIX = 'tk_live_';
 

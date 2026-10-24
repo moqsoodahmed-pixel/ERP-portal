@@ -14,6 +14,8 @@ import {
 import { DocumentRepository } from './document.repository.js';
 import { ReportRepository } from './report.repository.js';
 
+import { TallyBillSyncRepository } from './tallyBillSync.repository.js';
+
 export function buildRepositories(m) {
   return {
     users: new UserRepository(m.User),
@@ -45,6 +47,7 @@ export function buildRepositories(m) {
     bills: new BillIntakeRepository(m.BillIntake),
     tallyConnectors: new TallyConnectorRepository(m.TallyConnector),
     tallyJobs: new TallyJobRepository(m.TallyJob),
+    tallyBillSyncs: new TallyBillSyncRepository(m.TallyBillSync),
     fileMetadata: new FileMetadataRepository(m.FileMetadata),
   };
 }

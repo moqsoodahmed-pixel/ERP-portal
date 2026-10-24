@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import mongoose from 'mongoose';
 import {
   PRODUCT_STATUS, CUSTOMER_STATUS, INVOICE_STATUS, PAYMENT_STATUS, TALLY_SYNC_STATUS, GST_FILING_STATUS,
@@ -5,6 +6,7 @@ import {
   FILING_ISSUE_TYPE, FILING_ISSUE_SEVERITY, FILING_ISSUE_STATUS, TALLY_API_KEY_STATUS,
   BILL_STATUS, BILL_TALLY_STATUS, TALLY_CONNECTOR_STATUS, TALLY_JOB_STATUS, TALLY_JOB_TYPE,
   GST_BILL_MATCH_STATUS, GST_BILL_OVERALL_MATCH_STATUS, NOTE_TYPE, NOTE_STATUS,
+  TALLY_BILL_SYNC_STATUS, TALLY_QUEUE_PRIORITY, TALLY_DLQ_STATUS,
 } from '../constants/statuses.js';
 import { TALLY_API_SCOPES, TALLY_CONNECTOR_SCOPES } from '../integrations/tally/tally.constants.js';
 import {
@@ -455,18 +457,34 @@ gstBillMatchSchema.index({ tenantId: 1, filingId: 1 }, { unique: true });
  */
 const tallyApiKeySchema = new Schema({
   name: { type: String, required: true, trim: true, maxlength: 120 },
+  integrationId: { type: String, default: () => crypto.randomUUID() },
+  environment: { type: String, enum: ['PRODUCTION', 'STAGING', 'TESTING', 'DEVELOPMENT'], default: 'PRODUCTION' },
+  description: { type: String, maxlength: 500 },
+  webhookUrl: { type: String, trim: true, maxlength: 500 },
   keyPrefix: { type: String, required: true, maxlength: 20 },
   keyHash: { type: String, required: true, unique: true },
+  encryptedApiKey: { type: String }, // Reversible encrypted storage of API key for built-in visual test console
+  secretHash: { type: String }, // For HMAC signature verification lookup
+  encryptedSecret: { type: String }, // Reversible encrypted storage for HMAC generation/verification
+  keyVersion: { type: Number, default: 1 },
+  previousKeyHash: { type: String },
+  previousEncryptedSecret: { type: String },
+  previousKeyGraceExpiresAt: { type: Date },
+  lastIpAddress: { type: String },
+  ipAllowList: { type: [String], default: [] }, // Optional IP allow-list
   status: { type: String, enum: enumOf(TALLY_API_KEY_STATUS), default: TALLY_API_KEY_STATUS.ACTIVE },
   scopes: { type: [String], enum: TALLY_API_SCOPES, default: [] },
+  permissions: { type: [String], default: ['Bills.Read', 'Bills.Write', 'Bills.Status', 'Bills.Retry', 'Bills.Export', 'Bills.Sync'] },
   lastUsedAt: Date,
   expiresAt: Date,
   revokedAt: Date,
   revokedBy: { type: ObjectId, ref: 'User' },
+  createdByRole: { type: String, default: 'MASTER_ADMIN' },
 }, { timestamps: true });
 tenantPlugin(tallyApiKeySchema); actorPlugin(tallyApiKeySchema);
 tallyApiKeySchema.index({ tenantId: 1, status: 1 });
 tallyApiKeySchema.index({ tenantId: 1, createdAt: -1 });
+tallyApiKeySchema.index({ integrationId: 1 }, { unique: true, sparse: true });
 
 /**
  * Phase 15 — CLIENT BILL INTAKE + TALLY QUEUE.
@@ -487,6 +505,8 @@ const billHistoryEntrySchema = new Schema({
 }, { _id: false });
 
 const billIntakeSchema = new Schema({
+  billId: { type: String, trim: true },
+  companyCode: { type: String, trim: true, uppercase: true },
   clientUserId: { type: ObjectId, ref: 'User', required: true },
   billNumber: { type: String, trim: true, maxlength: 100 },
   billDate: Date,
@@ -522,6 +542,8 @@ billIntakeSchema.index({ tenantId: 1, status: 1 });
 billIntakeSchema.index({ tenantId: 1, tallyStatus: 1 });
 billIntakeSchema.index({ tenantId: 1, createdAt: -1 });
 billIntakeSchema.index({ tenantId: 1, billNumber: 1 });
+billIntakeSchema.index({ billId: 1 }, { unique: true, sparse: true });
+billIntakeSchema.index({ tenantId: 1, billId: 1 });
 
 /**
  * Phase 16 — TALLY CONNECTOR BRIDGE (Side A: cloud ERP's view of a registered Windows connector).
@@ -589,9 +611,72 @@ const tallyJobSchema = new Schema({
   idempotencyKey: { type: String, required: true, maxlength: 200 },
 }, { timestamps: true });
 tenantPlugin(tallyJobSchema); actorPlugin(tallyJobSchema);
-tallyJobSchema.index({ tenantId: 1, billIntakeId: 1, type: 1 }, { unique: true });
-tallyJobSchema.index({ tenantId: 1, status: 1, availableAt: 1 });
-tallyJobSchema.index({ connectorId: 1, status: 1 });
+tallyJobSchema.index({ tenantId: 1, billIntakeId: 1, type: 1 }, { unique: true })/**
+ * Dedicated Tally Integration Module: Bill Sync Queue table with enterprise hardening:
+ * UUID, Priority Queue, Dead Letter Queue, Detailed History, and Validation tracking.
+ */
+const tallyBillSyncHistorySchema = new Schema({
+  status: { type: String, enum: enumOf(TALLY_BILL_SYNC_STATUS), required: true },
+  attemptNumber: { type: Number, default: 1 },
+  retryCount: { type: Number, default: 0 },
+  attemptedAt: { type: Date, default: Date.now },
+  timestamp: { type: Date, default: Date.now },
+  responsePayload: Schema.Types.Mixed,
+  errorMessage: String,
+  user: { type: ObjectId, ref: 'User' },
+  requestId: String,
+  apiKeyId: String,
+  latencyMs: { type: Number, default: 0 },
+  httpStatus: Number,
+  responseCode: String,
+  responseBody: Schema.Types.Mixed,
+  errorType: { type: String, default: 'NONE' },
+  errorCategory: { type: String, default: 'NONE' },
+  retryTrigger: { type: String, default: 'INITIAL' },
+  processingDurationMs: { type: Number, default: 0 },
+  server: { type: String, default: 'launcherdesk-srv-1' },
+  worker: { type: String, default: 'sync-worker-1' },
+  ipAddress: String,
+}, { _id: false });
+
+const tallyBillSyncSchema = new Schema({
+  uuid: { type: String, required: true, default: () => crypto.randomUUID() },
+  billId: { type: String, required: true },
+  billIntakeId: { type: ObjectId, ref: 'BillIntake' },
+  companyCode: { type: String, required: true, uppercase: true },
+  syncStatus: { type: String, enum: enumOf(TALLY_BILL_SYNC_STATUS), default: TALLY_BILL_SYNC_STATUS.PENDING },
+  priority: { type: String, enum: ['HIGH', 'MEDIUM', 'LOW'], default: 'MEDIUM' },
+  dlqStatus: { type: String, enum: ['NONE', 'IN_DLQ', 'RESOLVED', 'ARCHIVED'], default: 'NONE' },
+  dlqEnteredAt: Date,
+  dlqResolvedAt: Date,
+  dlqResolvedBy: { type: ObjectId, ref: 'User' },
+  dlqResolutionNotes: { type: String, maxlength: 2000 },
+  dlqArchivedAt: Date,
+  dlqArchivedBy: { type: ObjectId, ref: 'User' },
+  dlqArchiveReason: { type: String, maxlength: 1000 },
+  retryCount: { type: Number, default: 0 },
+  maxRetries: { type: Number, default: 3 },
+  lastAttempt: Date,
+  tallyReferenceNumber: { type: String, maxlength: 200 },
+  responsePayload: Schema.Types.Mixed,
+  errorMessage: { type: String, maxlength: 2000 },
+  invoiceNumber: { type: String, maxlength: 100 },
+  gstin: { type: String, uppercase: true },
+  amount: { type: Money },
+  financialYear: { type: String, maxlength: 20 },
+  validationErrors: { type: [Schema.Types.Mixed], default: [] },
+  uploadedBy: { type: ObjectId, ref: 'User' },
+  lastRetriedBy: { type: ObjectId, ref: 'User' },
+  history: { type: [tallyBillSyncHistorySchema], default: [] },
+}, { timestamps: true });
+tenantPlugin(tallyBillSyncSchema); actorPlugin(tallyBillSyncSchema);
+tallyBillSyncSchema.index({ uuid: 1 }, { unique: true });
+tallyBillSyncSchema.index({ billId: 1 }, { unique: true });
+tallyBillSyncSchema.index({ tenantId: 1, syncStatus: 1 });
+tallyBillSyncSchema.index({ tenantId: 1, priority: 1, createdAt: 1 });
+tallyBillSyncSchema.index({ tenantId: 1, dlqStatus: 1 });
+tallyBillSyncSchema.index({ companyCode: 1, invoiceNumber: 1, gstin: 1, financialYear: 1 });
+tallyBillSyncSchema.index({ syncStatus: 1, createdAt: -1 });
 
 export const businessModels = {
   Product: model('Product', productSchema),
@@ -606,7 +691,9 @@ export const businessModels = {
   GSTBill: model('GSTBill', gstBillSchema),
   GSTBillMatch: model('GSTBillMatch', gstBillMatchSchema),
   TallyApiKey: model('TallyApiKey', tallyApiKeySchema),
+  TallyExternalIntegration: model('TallyExternalIntegration', tallyApiKeySchema),
   BillIntake: model('BillIntake', billIntakeSchema),
   TallyConnector: model('TallyConnector', tallyConnectorSchema),
   TallyJob: model('TallyJob', tallyJobSchema),
+  TallyBillSync: model('TallyBillSync', tallyBillSyncSchema),
 };

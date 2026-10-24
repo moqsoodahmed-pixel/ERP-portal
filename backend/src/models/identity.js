@@ -56,6 +56,7 @@ userRoleSchema.index({ userId: 1, roleId: 1 }, { unique: true });
 
 const tenantSchema = new Schema({
   tenantCode: { type: String, required: true, unique: true },
+  companyCode: { type: String, uppercase: true, trim: true },
   businessName: { type: String, required: true, trim: true, maxlength: 200 },
   legalName: { type: String, trim: true, maxlength: 200 },
   gstin: { type: String, uppercase: true, match: GSTIN_REGEX },
@@ -70,6 +71,7 @@ const tenantSchema = new Schema({
 softDeletePlugin(tenantSchema);
 tenantSchema.index({ status: 1, createdAt: -1 });
 tenantSchema.index({ gstin: 1 }, { unique: true, partialFilterExpression: { gstin: { $type: 'string' } } });
+tenantSchema.index({ companyCode: 1 }, { unique: true, sparse: true });
 
 /** Phase 22 — Company Letterhead Management. Bank details printed on invoices/credit-notes/debit-notes. */
 const bankDetailsSchema = new Schema({

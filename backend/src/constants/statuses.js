@@ -103,6 +103,60 @@ export const TALLY_CONNECTOR_STATUS = e('ACTIVE', 'INACTIVE', 'REVOKED');
 export const TALLY_JOB_TYPE = e('SYNC_BILL_TO_TALLY');
 export const TALLY_JOB_STATUS = e('QUEUED', 'CLAIMED', 'PROCESSING', 'SUCCEEDED', 'FAILED');
 
+/**
+ * Dedicated Tally Integration Module: Bill Sync Queue statuses.
+ * Pending -> Processing -> Synced -> Failed -> Retry Pending -> Dead Letter
+ */
+export const TALLY_BILL_SYNC_STATUS = Object.freeze({
+  PENDING: 'Pending',
+  PROCESSING: 'Processing',
+  SYNCED: 'Synced',
+  FAILED: 'Failed',
+  RETRY_PENDING: 'Retry Pending',
+  DEAD_LETTER: 'Dead Letter',
+  Pending: 'Pending',
+  Processing: 'Processing',
+  Synced: 'Synced',
+  Failed: 'Failed',
+  'Retry Pending': 'Retry Pending',
+  'Dead Letter': 'Dead Letter',
+});
+
+export const TALLY_QUEUE_PRIORITY = Object.freeze({
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+});
+
+export const TALLY_DLQ_STATUS = Object.freeze({
+  NONE: 'NONE',
+  IN_DLQ: 'IN_DLQ',
+  RESOLVED: 'RESOLVED',
+  ARCHIVED: 'ARCHIVED',
+});
+
+export const TALLY_INTEGRATION_SCOPES = Object.freeze([
+  'Bills.Read',
+  'Bills.Write',
+  'Bills.Status',
+  'Bills.Retry',
+  'Bills.Export',
+  'Bills.Sync',
+]);
+
+export const TALLY_INTEGRATION_ENVIRONMENT = Object.freeze({
+  PRODUCTION: 'PRODUCTION',
+  STAGING: 'STAGING',
+  DEVELOPMENT: 'DEVELOPMENT',
+});
+
+export const TALLY_INTEGRATION_STATUS = Object.freeze({
+  ACTIVE: 'ACTIVE',
+  DISABLED: 'DISABLED',
+  REVOKED: 'REVOKED',
+  EXPIRED: 'EXPIRED',
+});
+
 export const AUDIT_ACTIONS = e(
   'LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'TOKEN_REFRESH', 'TOKEN_REUSE_DETECTED', 'PASSWORD_CHANGED',
   'USER_CREATED', 'USER_UPDATED', 'USER_DISABLED',
@@ -145,6 +199,13 @@ export const AUDIT_ACTIONS = e(
   'GST_FINAL_DOCUMENT_UPLOADED',
   // Phase 22: Credit/Debit Notes against an already-ISSUED, immutable invoice.
   'CREDIT_NOTE_CREATED', 'DEBIT_NOTE_CREATED', 'CREDIT_DEBIT_NOTE_CANCELLED',
+  // Dedicated Tally Integration Module: Bill Sync & Enterprise Hardening
+  'TALLY_BILL_UPLOADED', 'TALLY_BILL_SYNC_STARTED', 'TALLY_BILL_SYNC_SUCCEEDED', 'TALLY_BILL_SYNC_FAILED',
+  'TALLY_BILL_SYNC_RETRIED', 'TALLY_BILL_DUPLICATE_PREVENTED', 'TALLY_CREDENTIALS_CREATED', 'TALLY_CREDENTIALS_ROTATED',
+  'TALLY_BILL_VALIDATION_FAILED', 'TALLY_BILL_DEAD_LETTER', 'TALLY_DLQ_RESOLVED', 'TALLY_DLQ_ARCHIVED',
+  'TALLY_INTEGRATION_REGISTERED', 'TALLY_INTEGRATION_ROTATED', 'TALLY_INTEGRATION_REVOKED',
+  'TALLY_INTEGRATION_DISABLED', 'TALLY_INTEGRATION_ENABLED', 'TALLY_QUEUE_PRIORITY_UPDATED',
+  'TALLY_INTEGRATION_DELETED', 'TALLY_INTEGRATION_UPDATED',
 );
 
 export const SECURITY_EVENT_TYPES = e(
@@ -152,4 +213,7 @@ export const SECURITY_EVENT_TYPES = e(
   'CROSS_TENANT_ACCESS', 'UNAUTHORIZED_ACCESS', 'RATE_LIMIT_TRIGGERED',
   'TALLY_API_KEY_AUTH_FAILED', 'TALLY_API_SCOPE_DENIED',
   'TALLY_CONNECTOR_AUTH_FAILED', 'TALLY_CONNECTOR_SCOPE_DENIED',
+  'TALLY_HMAC_AUTH_FAILED', 'TALLY_IP_DENIED',
+  'TALLY_REPLAY_ATTACK_DETECTED', 'TALLY_TIMESTAMP_SKEW_DETECTED',
+  'TALLY_INTEGRATION_SCOPE_DENIED', 'TALLY_API_ABUSE_DETECTED',
 );

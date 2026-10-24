@@ -19,7 +19,7 @@ import {
   TableCell,
 } from '../../design-system/index.js';
 
-const SCOPES = ['tally:company:read', 'tally:customer:read', 'tally:product:read', 'tally:invoice:read', 'tally:sync'];
+const SCOPES = ['tally:bill:sync', 'tally:company:read', 'tally:customer:read', 'tally:product:read', 'tally:invoice:read', 'tally:sync'];
 
 /**
  * Phase 13: lets a Business/Master admin issue API keys for an external Tally/TDL integration to call
@@ -58,7 +58,7 @@ export default function TallyApiKeysSection() {
       const { data } = await api.post('/tally/api-keys', {
         name: form.name, scopes: form.scopes, ...(form.expiresAt ? { expiresAt: new Date(form.expiresAt).toISOString() } : {}),
       });
-      setRevealedKey({ name: data.name, key: data.key });
+      setRevealedKey({ name: data.name, key: data.key, secret: data.secret });
       setForm({ name: '', scopes: [], expiresAt: '' });
       load();
     } catch (err) {
@@ -77,7 +77,7 @@ export default function TallyApiKeysSection() {
         load();
       } else {
         const { data } = await api.post(`/tally/api-keys/${id}/rotate`);
-        setRevealedKey({ name: data.name, key: data.key });
+        setRevealedKey({ name: data.name, key: data.key, secret: data.secret });
         load();
       }
     } catch (err) {
@@ -100,9 +100,10 @@ export default function TallyApiKeysSection() {
         {revealedKey && (
           <div className="state" role="alert" style={{ marginBottom: '1.5rem', background: 'var(--brand-surface)', borderColor: 'var(--brand-border)', borderRadius: 'var(--radius-md)' }}>
             <p style={{ margin: '0 0 0.5rem', color: 'var(--brand-dark)' }}>
-              <strong>{revealedKey.name}</strong> — copy this key now. It will not be shown again.
+              <strong>{revealedKey.name}</strong> — copy these credentials now. They will not be shown again.
             </p>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem' }}><strong>API Key:</strong></p>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
               <code style={{ wordBreak: 'break-all', userSelect: 'all', background: '#FFFFFF', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', flex: 1, minWidth: '240px' }}>
                 {revealedKey.key}
               </code>
@@ -112,12 +113,30 @@ export default function TallyApiKeysSection() {
                 size="sm"
                 onClick={() => navigator.clipboard?.writeText(revealedKey.key).catch(() => {})}
               >
-                Copy
+                Copy Key
               </Button>
             </div>
+            {revealedKey.secret && (
+              <>
+                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem' }}><strong>Secret Key (for HMAC request signing):</strong></p>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <code style={{ wordBreak: 'break-all', userSelect: 'all', background: '#FFFFFF', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', flex: 1, minWidth: '240px' }}>
+                    {revealedKey.secret}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigator.clipboard?.writeText(revealedKey.secret).catch(() => {})}
+                  >
+                    Copy Secret
+                  </Button>
+                </div>
+              </>
+            )}
             <div>
               <Button type="button" variant="primary" size="sm" onClick={() => setRevealedKey(null)}>
-                I&rsquo;ve stored it securely
+                I&rsquo;ve stored them securely
               </Button>
             </div>
           </div>

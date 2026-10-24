@@ -46,6 +46,8 @@ export default function BillListPage({ basePath, title, subtitle, showCreate = f
     label: s.replaceAll('_', ' '),
   }));
 
+  const isPlatform = user?.role === 'MASTER_ADMIN' || user?.role === 'MASTER_ASSISTANT_ADMIN';
+
   return (
     <>
       <PageHeader
@@ -78,12 +80,12 @@ export default function BillListPage({ basePath, title, subtitle, showCreate = f
           <Table caption="Bills List">
             <TableHead>
               <TableRow hover={false}>
-                <TableHeaderCell>Bill number</TableHeaderCell>
-                <TableHeaderCell>Vendor</TableHeaderCell>
+                <TableHeaderCell>Bill ID</TableHeaderCell>
+                <TableHeaderCell>Supplier</TableHeaderCell>
                 <TableHeaderCell>Date</TableHeaderCell>
                 <TableHeaderCell numeric>Amount</TableHeaderCell>
                 <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Tally</TableHeaderCell>
+                {isPlatform && <TableHeaderCell>Tally</TableHeaderCell>}
                 <TableHeaderCell>Last update</TableHeaderCell>
                 <TableHeaderCell><span className="sr-only">Action</span></TableHeaderCell>
               </TableRow>
@@ -91,12 +93,12 @@ export default function BillListPage({ basePath, title, subtitle, showCreate = f
             <tbody>
               {data.items.map((b) => (
                 <TableRow key={b._id}>
-                  <TableCell mono>{b.billNumber ?? '—'}</TableCell>
+                  <TableCell mono>{b.billId ? `${b.billId}${b.billNumber ? ` (${b.billNumber})` : ''}` : (b.billNumber ?? '—')}</TableCell>
                   <TableCell>{b.vendorName ?? '—'}</TableCell>
                   <TableCell>{b.billDate ? formatDate(b.billDate) : '—'}</TableCell>
                   <TableCell numeric>{b.amount ?? '—'}</TableCell>
                   <TableCell><StatusBadge status={b.status} /></TableCell>
-                  <TableCell><StatusBadge status={b.tallyStatus} /></TableCell>
+                  {isPlatform && <TableCell><StatusBadge status={b.tallyStatus} /></TableCell>}
                   <TableCell>{formatDateTime(b.updatedAt)}</TableCell>
                   <TableCell>
                     <Link className="btn btn--small" to={`${basePath}/${b._id}`}>View</Link>

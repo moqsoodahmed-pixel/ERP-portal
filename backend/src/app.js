@@ -12,6 +12,7 @@ import { createRateLimiters } from './middlewares/rateLimiters.js';
 import { createAccessMiddlewares } from './middlewares/access.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { createV1Router } from './routes/v1.js';
+import { createTallyBillSyncRouter } from './routes/tallyBillSync.routes.js';
 import { openApiDocument } from './docs/openapi.js';
 import { createRequire } from 'node:module';
 
@@ -30,13 +31,21 @@ export function createApp(container, { rateLimits = {}, isReady = isDatabaseRead
   app.use(cors({
     origin: (origin, cb) => cb(null, !origin || env.corsOrigins.includes(origin)),
     credentials: true, methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'X-Request-Id', 'X-Admin-Tenant-Id'],
+    allowedHeaders: [
+      'Content-Type', 'Authorization', 'Idempotency-Key', 'X-Request-Id', 'X-Admin-Tenant-Id',
+      'X-API-Key', 'X-Tally-API-Key', 'X-Timestamp', 'X-Tally-Timestamp', 'X-Signature', 'X-Tally-Signature',
+    ],
   }));
   // Phase 15: bill document uploads are base64-encoded JSON (no multipart/multer stack exists in this
   // backend yet — see validators/billIntake.validators.js). A dedicated, larger body-size limit is scoped
   // to that one path only; every other route keeps the conservative 100kb default.
-  app.use('/api/v1/bills', express.json({ limit: '30mb' }));
-  app.use(express.json({ limit: MAX_BODY }));
+  const jsonWithRawBody = (opts) => express.json({
+    ...opts,
+    verify: (req, res, buf) => { req.rawBody = buf; },
+  });
+  app.use('/api/v1/bills', jsonWithRawBody({ limit: '30mb' }));
+  app.use('/api/tally', jsonWithRawBody({ limit: '30mb' }));
+  app.use(jsonWithRawBody({ limit: MAX_BODY }));
   app.use(cookieParser());
   app.use(sanitizeInput);
 
@@ -56,6 +65,10 @@ export function createApp(container, { rateLimits = {}, isReady = isDatabaseRead
   app.get('/api/v1/openapi.json', (req, res) => res.json(openApiDocument));
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument, { customSiteTitle: 'ERP Platform API' }));
   app.use('/api/v1', limiters.general, createV1Router({ container, access, limiters }));
+  // Dedicated Tally Integration API: strictly handles bill synchronization, never exposes complete ERP
+  const tallyBillSyncRouter = createTallyBillSyncRouter({ container, limiters });
+  app.use('/api/tally', tallyBillSyncRouter);
+  app.use('/api/v1/tally', tallyBillSyncRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -30,6 +30,9 @@ import { DashboardService } from './services/dashboard.service.js';
 import { BillIntakeService } from './services/billIntake.service.js';
 import { TallyConnectorService } from './integrations/tally/tallyConnector.service.js';
 import { TallyJobService } from './integrations/tally/tallyJob.service.js';
+import { TallyBillSyncService } from './integrations/tally/tallyBillSync.service.js';
+import { TallyValidationEngine } from './integrations/tally/tallyValidationEngine.js';
+import { TallyExternalIntegrationService } from './integrations/tally/tallyExternalIntegration.service.js';
 import { env } from './config/env.js';
 
 /** Composition root: the only place where concrete classes are wired together. Tests inject fake models here. */
@@ -104,7 +107,7 @@ export function buildContainer(models) {
   // Phase 13: Tally Public API (Tally/TDL -> ERP direction). tallyApiKeyService owns key lifecycle +
   // authentication; tallyPublicApiService is a thin projection over the SAME services every JWT-authenticated
   // route already uses (no duplicated business/GST/sync logic).
-  services.tallyApiKeyService = new TallyApiKeyService({ tallyApiKeyRepo: repos.tallyApiKeys, auditService, securityService });
+  services.tallyApiKeyService = new TallyApiKeyService({ tallyApiKeyRepo: repos.tallyApiKeys, auditService, securityService, encryption });
   services.tallyPublicApiService = new TallyPublicApiService({
     businessProfileService: services.businessProfileService, productService: services.productService,
     customerService: services.customerService, invoiceService, tallySyncService: services.tallySyncService,
@@ -120,10 +123,39 @@ export function buildContainer(models) {
   services.tallyConnectorService = new TallyConnectorService({
     tallyConnectorRepo: repos.tallyConnectors, tallyIntegrationRepo: repos.tallyIntegrations, auditService, securityService, notificationService,
   });
+  const tallyValidationEngine = new TallyValidationEngine({
+    tenantRepo: repos.tenants,
+    tallyBillSyncRepo: repos.tallyBillSyncs,
+    billRepo: repos.bills,
+  });
+  services.tallyValidationEngine = tallyValidationEngine;
+  services.tallyBillSyncService = new TallyBillSyncService({
+    tallyBillSyncRepo: repos.tallyBillSyncs,
+    billRepo: repos.bills,
+    tenantRepo: repos.tenants,
+    tallyIntegrationRepo: repos.tallyIntegrations,
+    tallyAdapter,
+    validationEngine: tallyValidationEngine,
+    auditService,
+    notificationService,
+  });
+  services.tallyExternalIntegrationService = new TallyExternalIntegrationService({
+    tallyApiKeyRepo: repos.tallyApiKeys,
+    auditService,
+    securityService,
+    encryption,
+    notificationService,
+    tallyBillSyncService: services.tallyBillSyncService,
+    tallyValidationEngine,
+    tenantRepo: repos.tenants,
+    auditRepo: repos.audit,
+  });
   services.billIntakeService = new BillIntakeService({
     billRepo: repos.bills, fileMetadataRepo: repos.fileMetadata, storageService, userRepo: repos.users,
     assignmentRepo: repos.assignments, tenantRepo: repos.tenants, auditService, notificationService,
     tallyJobHook: (ctx, bill) => services.tallyJobService.createForBill(ctx, bill),
+    counterRepo: repos.counters,
+    tallyBillSyncService: services.tallyBillSyncService,
   });
   services.tallyJobService = new TallyJobService({
     tallyJobRepo: repos.tallyJobs, billRepo: repos.bills, tallyIntegrationRepo: repos.tallyIntegrations,

@@ -66,13 +66,15 @@ export default function TallyQueuePage({ detailBasePath }) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Bill number</th><th>Amount</th><th>ERP status</th><th>Tally status</th><th>Ready since</th><th>Last attempt</th><th>Failure reason</th>{canRetry && <th>Actions</th>}
+                  <th>Company</th><th>Bill ID</th><th>Bill / Invoice number</th><th>Amount</th><th>ERP status</th><th>Tally status</th><th>Ready since</th><th>Last attempt</th><th>Failure reason</th>{canRetry && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((b) => (
                   <tr key={b.id}>
-                    <td><Link to={`${detailBasePath}/${b.id}`}>{b.billNumber ?? b.id}</Link></td>
+                    <td>{b.companyCode ?? '—'}</td>
+                    <td><Link to={`${detailBasePath}/${b.id}`}>{b.billId ?? b.id}</Link></td>
+                    <td>{b.billNumber ?? '—'}</td>
                     <td>{b.amount ?? '—'}</td>
                     <td><StatusBadge status={b.status} /></td>
                     <td><StatusBadge status={b.tallyStatus} /></td>

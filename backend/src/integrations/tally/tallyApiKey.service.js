@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { AUDIT_ACTIONS, TALLY_API_KEY_STATUS } from '../../constants/statuses.js';
 import { AuthenticationError, NotFoundError, ValidationError } from '../../utils/errors.js';
 import { generateApiKey, hashApiKey, isWellFormedApiKey } from '../../security/apiKey.js';
@@ -10,6 +11,7 @@ const toView = (doc) => ({
   keyPrefix: doc.keyPrefix,
   status: doc.status,
   scopes: doc.scopes ?? [],
+  ipAllowList: doc.ipAllowList ?? [],
   lastUsedAt: doc.lastUsedAt ?? null,
   expiresAt: doc.expiresAt ?? null,
   revokedAt: doc.revokedAt ?? null,
@@ -24,8 +26,8 @@ const toView = (doc) => ({
  * TallySyncService for the sync endpoint (see tallyPublicApi.service.js), never duplicating its logic.
  */
 export class TallyApiKeyService {
-  constructor({ tallyApiKeyRepo, auditService, securityService }) {
-    Object.assign(this, { tallyApiKeyRepo, auditService, securityService });
+  constructor({ tallyApiKeyRepo, auditService, securityService, encryption = null }) {
+    Object.assign(this, { tallyApiKeyRepo, auditService, securityService, encryption });
   }
 
   async list(ctx) {
@@ -46,18 +48,30 @@ export class TallyApiKeyService {
     return list;
   }
 
-  /** Raw key is returned ONLY here (and from rotate()) — never again afterwards, by design. */
-  async create(ctx, { name, scopes, expiresAt }) {
+  /** Raw key and raw secret are returned ONLY here (and from rotate()) — never again afterwards, by design. */
+  async create(ctx, { name, scopes, expiresAt, ipAllowList }) {
     const { key, keyPrefix } = generateApiKey();
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    const secretHash = hashApiKey(rawSecret);
+    const encryptedSecret = this.encryption ? this.encryption.encrypt(rawSecret) : null;
+
     const doc = await this.tallyApiKeyRepo.create(ctx.tenantId, {
-      name, keyPrefix, keyHash: hashApiKey(key), scopes: this._validateScopes(scopes), expiresAt: expiresAt ?? undefined,
+      name,
+      keyPrefix,
+      keyHash: hashApiKey(key),
+      secretHash,
+      encryptedSecret,
+      ipAllowList: Array.isArray(ipAllowList) ? ipAllowList : [],
+      scopes: this._validateScopes(scopes),
+      expiresAt: expiresAt ?? undefined,
       status: TALLY_API_KEY_STATUS.ACTIVE,
     }, ctx.actor.id);
+
     await this.auditService.record(ctx, {
       action: AUDIT_ACTIONS.TALLY_API_KEY_CREATED, resourceType: 'TallyApiKey', resourceId: doc._id,
       metadata: { name: doc.name, scopes: doc.scopes, keyPrefix: doc.keyPrefix },
     });
-    return { ...toView(doc), key };
+    return { ...toView(doc), key, secret: rawSecret };
   }
 
   async revoke(ctx, id) {
@@ -75,11 +89,35 @@ export class TallyApiKeyService {
     const existing = await this.tallyApiKeyRepo.findOneById(ctx.tenantId, id);
     if (!existing) throw new NotFoundError('API key not found');
     const { key, keyPrefix } = generateApiKey();
+    const rawSecret = crypto.randomBytes(32).toString('hex');
+    const secretHash = hashApiKey(rawSecret);
+    const encryptedSecret = this.encryption ? this.encryption.encrypt(rawSecret) : null;
+
     const updated = await this.tallyApiKeyRepo.updateById(ctx.tenantId, id, {
-      keyPrefix, keyHash: hashApiKey(key), status: TALLY_API_KEY_STATUS.ACTIVE, revokedAt: null, revokedBy: null, lastUsedAt: null,
+      keyPrefix,
+      keyHash: hashApiKey(key),
+      secretHash,
+      encryptedSecret,
+      status: TALLY_API_KEY_STATUS.ACTIVE,
+      revokedAt: null,
+      revokedBy: null,
+      lastUsedAt: null,
     }, ctx.actor.id);
+
     await this.auditService.record(ctx, { action: AUDIT_ACTIONS.TALLY_API_KEY_ROTATED, resourceType: 'TallyApiKey', resourceId: id, metadata: { name: existing.name, keyPrefix } });
-    return { ...toView(updated), key };
+    return { ...toView(updated), key, secret: rawSecret };
+  }
+
+  /** Decrypts and retrieves the raw secret for an API key if encrypted storage is available. */
+  getSecret(doc) {
+    if (doc.encryptedSecret && this.encryption) {
+      try {
+        return this.encryption.decrypt(doc.encryptedSecret);
+      } catch {
+        return null;
+      }
+    }
+    return null;
   }
 
   /**

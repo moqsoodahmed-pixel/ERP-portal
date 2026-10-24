@@ -40,6 +40,7 @@ import BillDetailPage from '../features/bills/BillDetailPage.jsx';
 import TallyQueuePage from '../features/bills/TallyQueuePage.jsx';
 import ConnectorListPage from '../features/tally/ConnectorListPage.jsx';
 import ConnectorDetailPage from '../features/tally/ConnectorDetailPage.jsx';
+import ApiIntegrationsPage from '../features/developer/ApiIntegrationsPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 import ForbiddenPage from '../pages/ForbiddenPage.jsx';
 
@@ -70,6 +71,9 @@ export default function AppRoutes() {
         <Route path="tally-connectors" element={guarded('tally.connector.view', <ConnectorListPage />)} />
         <Route path="tally-connectors/:id" element={guarded('tally.connector.view', <ConnectorDetailPage />)} />
         <Route path="audit-logs" element={guarded('audit_logs.view', <AuditLogsPage />)} />
+        <Route path="settings/developer/api-integrations/tally" element={guarded('dashboard.view', <ApiIntegrationsPage />)} />
+        <Route path="developer/api-integrations" element={guarded('dashboard.view', <ApiIntegrationsPage />)} />
+        <Route path="api-integrations" element={guarded('dashboard.view', <ApiIntegrationsPage />)} />
       </Route>
 
       <Route path="/client" element={<RoleGuard roles={CLIENT_ROLES}><ClientLayout /></RoleGuard>}>

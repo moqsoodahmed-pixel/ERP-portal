@@ -6,6 +6,7 @@ import { AUDIT_ACTIONS, BILL_STATUS as S, BILL_TALLY_STATUS as TS } from '../con
 import { ROLES } from '../constants/roles.js';
 import { parsePagination, parseSort, buildPageMeta } from '../utils/pagination.js';
 import { ALLOWED_BILL_MIME_TYPES, MAX_BILL_FILE_BYTES } from '../validators/billIntake.validators.js';
+import { generateBillId, getFinancialYearString } from '../utils/billIdentifier.js';
 
 /**
  * Phase 15 — CLIENT BILL INTAKE + TALLY QUEUE (ERP-internal workflow; see the spec's Step 2 scope boundary:
@@ -36,9 +37,12 @@ export class BillIntakeService {
     // rather than imported, so BillIntakeService has zero compile-time dependency on the Tally Connector
     // bridge — Phase 15's own tests/behaviour are unchanged when this is left undefined (the default).
     tallyJobHook = null,
+    counterRepo = null,
+    tallyBillSyncService = null,
   }) {
     Object.assign(this, {
       billRepo, fileMetadataRepo, storageService, userRepo, assignmentRepo, tenantRepo, auditService, notificationService, tallyJobHook,
+      counterRepo, tallyBillSyncService,
     });
   }
 
@@ -100,10 +104,69 @@ export class BillIntakeService {
 
   // ---------------------------------------------------------------- create / draft update
   async create(ctx, dto) {
+    let companyCode = dto.companyCode;
+    let tenant = null;
+    if (this.tenantRepo && ctx.tenantId) {
+      tenant = await this.tenantRepo.findById(ctx.tenantId);
+      if (tenant) {
+        companyCode = companyCode || tenant.companyCode || tenant.tenantCode || 'CMP001';
+      }
+    }
+    companyCode = companyCode || 'CMP001';
+
+    let billId = dto.billId;
+    if (!billId && this.counterRepo && ctx.tenantId) {
+      billId = await generateBillId(this.counterRepo, ctx.tenantId, companyCode, dto.billDate || new Date());
+    }
+
+    // Duplicate Prevention before saving
+    const invoiceNum = dto.billNumber || dto.invoiceNumber;
+    if (this.tallyBillSyncService?.tallyBillSyncRepo?.checkDuplicate && invoiceNum) {
+      const fy = getFinancialYearString(dto.billDate || new Date());
+      const duplicate = await this.tallyBillSyncService.tallyBillSyncRepo.checkDuplicate({
+        companyCode,
+        invoiceNumber: invoiceNum,
+        financialYear: fy,
+        gstin: dto.supplierGstin || dto.vendorGSTIN,
+        amount: dto.amount,
+      });
+      if (duplicate) {
+        throw new ConflictError(
+          `Duplicate bill detected: Invoice ${invoiceNum} is already queued or synchronized for company ${companyCode}`,
+          'DUPLICATE_BILL_SYNC',
+        );
+      }
+    }
+
     const bill = await this.billRepo.create(ctx.tenantId, {
-      ...dto, clientUserId: ctx.actor.id, status: S.DRAFT, tallyStatus: TS.NOT_READY, documentIds: [], history: [],
+      ...dto,
+      billId,
+      companyCode,
+      clientUserId: ctx.actor.id,
+      status: S.DRAFT,
+      tallyStatus: TS.NOT_READY,
+      documentIds: [],
+      history: [],
     }, ctx.actor.id);
-    await this.auditService.record(ctx, { action: AUDIT_ACTIONS.BILL_CREATED, resourceType: 'BillIntake', resourceId: bill._id, metadata: {} });
+    await this.auditService.record(ctx, { action: AUDIT_ACTIONS.BILL_CREATED, resourceType: 'BillIntake', resourceId: bill._id, metadata: { billId, companyCode } });
+
+    // Step 6 & 7: Notify Master Admin and Assigned Assistant Admin
+    if (this.notificationService?.billUploaded) {
+      await this.notificationService.billUploaded(bill, companyCode).catch(() => {});
+    }
+
+    // Step 8: Add bill to Tally Sync Queue
+    if (this.tallyBillSyncService?.enqueueBill && !dto.skipTallyQueue) {
+      await this.tallyBillSyncService.enqueueBill({
+        bill,
+        tenant: tenant || { _id: ctx.tenantId, companyCode },
+        user: ctx.actor,
+        requestId: ctx.requestId,
+        autoSync: true,
+        priority: dto.priority,
+      }).catch(() => {});
+    }
+
     return bill;
   }
 

@@ -300,6 +300,138 @@ export class NotificationService {
     return admins.map((user) => ({ user, actionUrl: '/master/dashboard' }));
   }
 
+  async #masterAndAssistantAdminRecipients(tenantId) {
+    const users = await this.userRepo.model.find({
+      $or: [
+        { role: ROLES.MASTER_ADMIN, status: 'ACTIVE', isDeleted: { $ne: true } },
+        { role: ROLES.MASTER_ASSISTANT_ADMIN, assignedTenantIds: String(tenantId), status: 'ACTIVE', isDeleted: { $ne: true } },
+      ],
+    }).lean();
+    return users.map((user) => ({ user, actionUrl: '/master/bills' }));
+  }
+
+  async billUploaded(bill, companyCode) {
+    const admins = await this.#masterAndAssistantAdminRecipients(bill.tenantId);
+    return this.notify({
+      tenantId: bill.tenantId,
+      type: T.NEW_BILL_READY_FOR_TALLY,
+      severity: S.INFO,
+      title: `New bill ${bill.billId ?? bill.billNumber ?? bill._id} uploaded`,
+      message: `Organization ${companyCode ?? 'Client'} uploaded a bill. Added to internal Tally sync queue.`,
+      entityType: 'BillIntake',
+      entityId: bill._id,
+      dedupKey: `BILL_UPLOADED:${bill._id}`,
+      recipients: admins,
+    });
+  }
+
+  // ---------------------------------------------------------------- Enterprise Tally Notification Center
+  async validationFailed(tenantId, bill, errors = [], actor = null) {
+    const adminRecipients = await this.#masterAndAssistantAdminRecipients(tenantId);
+    const clientRecipients = await this.#toTenantAdmins(tenantId, () => '/client/bills');
+    const billDisplay = bill.billId || bill.billNumber || bill.invoiceNumber || 'Document';
+
+    // 1. Notify Master Admin & Assigned Assistant Admin (operational view)
+    await this.notify({
+      tenantId,
+      type: 'TALLY_VALIDATION_FAILED',
+      severity: S.WARNING,
+      title: `Validation failed for bill ${billDisplay}`,
+      message: `Validation failed with ${errors.length} issue(s): ${errors.map((e) => e.message).join('; ')}`,
+      entityType: 'TallyBillSync',
+      entityId: bill._id || bill.id,
+      dedupKey: `VALIDATION_FAILED:${tenantId}:${billDisplay}:${Date.now()}`,
+      recipients: adminRecipients,
+    });
+
+    // 2. Notify Client Admin (safe friendly view — NEVER exposes internal routing or vendors)
+    return this.notify({
+      tenantId,
+      type: 'TALLY_VALIDATION_FAILED',
+      severity: S.WARNING,
+      title: `Bill validation failed: ${billDisplay}`,
+      message: errors.map((e) => e.message).join('; '),
+      entityType: 'BillIntake',
+      entityId: bill._id || bill.id,
+      dedupKey: `VALIDATION_FAILED_CLIENT:${tenantId}:${billDisplay}:${Date.now()}`,
+      recipients: clientRecipients,
+    });
+  }
+
+  async deadLetterQueueAlert(tenantId, record) {
+    const adminRecipients = await this.#masterAndAssistantAdminRecipients(tenantId);
+    return this.notify({
+      tenantId,
+      type: 'DEAD_LETTER_QUEUE_ENTRY',
+      severity: S.CRITICAL,
+      title: `Dead Letter Queue: Bill ${record.billId || record.uuid} requires review`,
+      message: `Bill exceeded maximum retry attempts (${record.retryCount}). Error: ${record.errorMessage || 'Unknown failure'}`,
+      entityType: 'TallyBillSync',
+      entityId: record._id || record.id,
+      actionUrl: '/master/bills',
+      dedupKey: `DLQ_ENTRY:${record.billId || record.uuid}:${record.retryCount}`,
+      recipients: adminRecipients,
+    });
+  }
+
+  async syncFailed(tenantId, record, error) {
+    const adminRecipients = await this.#masterAndAssistantAdminRecipients(tenantId);
+    return this.notify({
+      tenantId,
+      type: 'TALLY_SYNC_FAILED',
+      severity: S.WARNING,
+      title: `Sync attempt failed for bill ${record.billId || record.uuid}`,
+      message: `Attempt ${record.retryCount || 1} failed: ${error}`,
+      entityType: 'TallyBillSync',
+      entityId: record._id || record.id,
+      dedupKey: `SYNC_FAILED:${record.billId || record.uuid}:${record.retryCount || 1}`,
+      recipients: adminRecipients,
+    });
+  }
+
+  async credentialExpiringAlert(tenantId, integration) {
+    const admins = await this.#masterAdminRecipients();
+    return this.notify({
+      tenantId,
+      type: 'CREDENTIAL_EXPIRING',
+      severity: S.WARNING,
+      title: `Tally integration "${integration.name}" credentials expiring soon`,
+      message: `Integration "${integration.name}" is scheduled to expire on ${new Date(integration.expiresAt).toLocaleDateString()}`,
+      entityType: 'TallyExternalIntegration',
+      entityId: integration.id || integration._id,
+      dedupKey: `CREDENTIAL_EXPIRING:${integration.integrationId || integration.id}`,
+      recipients: admins,
+    });
+  }
+
+  async queueBacklogAlert(backlogCount) {
+    const admins = await this.#masterAdminRecipients();
+    return this.notify({
+      tenantId: 'system',
+      type: 'QUEUE_BACKLOG',
+      severity: S.WARNING,
+      title: `Tally queue backlog warning`,
+      message: `Current synchronization queue backlog has reached ${backlogCount} pending bills`,
+      entityType: 'TallySyncQueue',
+      dedupKey: `QUEUE_BACKLOG:${new Date().toISOString().slice(0, 13)}`,
+      recipients: admins,
+    });
+  }
+
+  async apiAbuseAlert(tenantId, details) {
+    const admins = await this.#masterAdminRecipients();
+    return this.notify({
+      tenantId,
+      type: 'API_ABUSE_DETECTED',
+      severity: S.CRITICAL,
+      title: `Security alert: Tally API abuse detected`,
+      message: details.reason || 'Unusual rate of failed signatures or invalid requests detected',
+      entityType: 'SecurityAlert',
+      dedupKey: `API_ABUSE:${tenantId}:${Date.now()}`,
+      recipients: admins,
+    });
+  }
+
   // ---------------------------------------------------------------- self-service API (recipient = authenticated user)
   async listOwn(userId, query) {
     const p = parsePagination(query);

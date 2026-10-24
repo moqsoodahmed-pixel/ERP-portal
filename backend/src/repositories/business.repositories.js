@@ -91,6 +91,29 @@ export class TallyApiKeyRepository extends TenantRepository {
   markExpired(id) {
     return this.model.findOneAndUpdate({ _id: String(id), status: 'ACTIVE' }, { $set: { status: 'EXPIRED' } }, { returnDocument: 'after' }).lean();
   }
+
+  async findByIntegrationId(integrationId) {
+    if (!integrationId) return null;
+    return this.model.findOne({ integrationId }).lean();
+  }
+
+  async listAll(filter = {}) {
+    return this.model.find(filter).sort({ createdAt: -1 }).lean();
+  }
+
+  async listByTenantIds(tenantIds = [], filter = {}) {
+    const ids = Array.isArray(tenantIds) ? tenantIds.map(String) : [String(tenantIds)];
+    return this.model.find({ tenantId: { $in: ids }, ...filter }).sort({ createdAt: -1 }).lean();
+  }
+
+  async deleteById(tenantId, id) {
+    const q = { _id: String(id) };
+    if (tenantId) q.tenantId = String(tenantId);
+    if (typeof this.model.deleteOne === 'function') {
+      return this.model.deleteOne(q);
+    }
+    return this.model.findOneAndDelete(q).lean();
+  }
 }
 
 /** One TallyIntegration document per tenant (tenantId has a unique index on the schema). */

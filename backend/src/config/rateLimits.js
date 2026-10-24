@@ -15,4 +15,6 @@ export const RATE_LIMITS = Object.freeze({
   // middlewares/rateLimiters.js) so one connector's poll/heartbeat traffic can never exhaust another
   // tenant's connector budget or the platform's general limiter (spec Step 23).
   tallyConnector: { windowMs: MIN, max: 120 },
+  // Tally Bill Sync dedicated module rate limiter
+  tallyBillSync: { windowMs: MIN, max: 120 },
 });

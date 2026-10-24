@@ -14,6 +14,7 @@ export const NAVIGATION = {
       { to: '/master/tally-connectors', label: 'Tally connectors', permission: 'tally.connector.view' },
       { to: '/master/reports', label: 'Reports', permission: 'reports.view' },
       { to: '/master/audit-logs', label: 'Audit logs', permission: 'audit_logs.view' },
+      { to: '/master/settings/developer/api-integrations/tally', label: 'API Integrations', permission: 'dashboard.view' },
     ],
   },
   client: {
@@ -47,7 +48,6 @@ export const NAVIGATION = {
       { to: '/vendor/filings', label: 'Filings', permission: 'gst_filings.view' },
       { to: '/vendor/gst-bills', label: 'Client GST bills', permission: 'gst_bills.view' },
       { to: '/vendor/bills', label: 'Client bills', permission: 'bills.view' },
-      { to: '/vendor/tally-queue', label: 'Tally queue', permission: 'tally_queue.view' },
       { to: '/vendor/reports', label: 'Reports', permission: 'reports.view' },
     ],
   },

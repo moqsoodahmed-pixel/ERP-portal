@@ -133,16 +133,18 @@ export default function BillDetailPage() {
     try { await fn(); await reload(); setNotice(successMsg); } catch (err) { setNotice(err.message ?? 'Action failed'); } finally { setBusy(false); }
   };
 
+  const isPlatform = user?.role === 'MASTER_ADMIN' || user?.role === 'MASTER_ASSISTANT_ADMIN';
+
   return (
     <>
       <PageHeader
-        title={bill.billNumber ?? `Bill ${bill._id}`}
+        title={bill.billId ? `${bill.billId}${bill.billNumber ? ` (${bill.billNumber})` : ''}` : (bill.billNumber ?? `Bill ${bill._id}`)}
         subtitle="Client bill intake — not an official ERP invoice until explicitly converted through a controlled workflow."
-        actions={<><StatusBadge status={bill.status} /> <StatusBadge status={bill.tallyStatus} /></>}
+        actions={<><StatusBadge status={bill.status} /> {isPlatform && <StatusBadge status={bill.tallyStatus} />}</>}
       />
       {notice && <p className="state" role="status">{notice}</p>}
 
-      {bill.status === 'FAILED' && bill.tallyReadinessIssues?.length > 0 && (
+      {isPlatform && bill.status === 'FAILED' && bill.tallyReadinessIssues?.length > 0 && (
         <Card style={{ marginBottom: '1.25rem', borderColor: 'var(--bad)' }}>
           <CardHeader title="Why this bill can't proceed to Tally yet" />
           <CardBody>
@@ -156,7 +158,7 @@ export default function BillDetailPage() {
           <CardBody><p>{bill.rejectionReason}</p></CardBody>
         </Card>
       )}
-      {bill.tallyFailureReason && (
+      {isPlatform && bill.tallyFailureReason && (
         <Card style={{ marginBottom: '1.25rem', borderColor: 'var(--bad)' }}>
           <CardHeader title="Tally failure reason" />
           <CardBody><p>{bill.tallyFailureReason}</p></CardBody>
@@ -185,12 +187,12 @@ export default function BillDetailPage() {
                 </Button>
               </span>
             )}
-            {bill.tallyStatus === 'QUEUED' && canTallyManage && (
+            {isPlatform && bill.tallyStatus === 'QUEUED' && canTallyManage && (
               <Button disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/tally/processing`, undefined, reqOpts), 'Marked as processing in Tally')}>
                 Start Tally processing
               </Button>
             )}
-            {bill.tallyStatus === 'PROCESSING' && canTallyManage && (
+            {isPlatform && bill.tallyStatus === 'PROCESSING' && canTallyManage && (
               <span className="toolbar" style={{ gap: '0.5rem' }}>
                 <input className="input" placeholder="Tally voucher reference" value={tallyReference} onChange={(e) => setTallyReference(e.target.value)} />
                 <Button variant="primary" disabled={busy || !tallyReference.trim()} onClick={() => run(() => api.post(`/bills/${id}/tally/synced`, { tallyReference }, reqOpts), 'Marked synced to Tally')}>
@@ -202,7 +204,7 @@ export default function BillDetailPage() {
                 </Button>
               </span>
             )}
-            {bill.tallyStatus === 'FAILED' && canTallyManage && (
+            {isPlatform && bill.tallyStatus === 'FAILED' && canTallyManage && (
               <Button disabled={busy} onClick={() => run(() => api.post(`/bills/${id}/tally/retry`, undefined, reqOpts), 'Re-queued for Tally')}>
                 Retry
               </Button>
@@ -212,7 +214,7 @@ export default function BillDetailPage() {
                 Mark completed
               </Button>
             )}
-            {!['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'ACCOUNTING_IN_PROGRESS'].includes(bill.status) && bill.tallyStatus !== 'QUEUED' && bill.tallyStatus !== 'PROCESSING' && bill.tallyStatus !== 'FAILED' && (
+            {!['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'ACCOUNTING_IN_PROGRESS'].includes(bill.status) && (!isPlatform || (bill.tallyStatus !== 'QUEUED' && bill.tallyStatus !== 'PROCESSING' && bill.tallyStatus !== 'FAILED')) && (
               <p className="muted">No action available for the current status.</p>
             )}
           </div>
@@ -225,10 +227,12 @@ export default function BillDetailPage() {
           <CardHeader title="Bill details" />
           <CardBody>
             <DefinitionList>
+              <DefinitionItem label="Bill ID" value={bill.billId ?? '—'} mono />
+              {bill.companyCode && <DefinitionItem label="Company code" value={bill.companyCode} mono />}
               <DefinitionItem label="Bill number" value={bill.billNumber} mono />
               <DefinitionItem label="Bill date" value={bill.billDate ? formatDate(bill.billDate) : '—'} />
-              <DefinitionItem label="Vendor" value={bill.vendorName} />
-              <DefinitionItem label="Vendor GSTIN" value={bill.vendorGSTIN} mono />
+              <DefinitionItem label="Supplier" value={bill.vendorName} />
+              <DefinitionItem label="Supplier GSTIN" value={bill.vendorGSTIN} mono />
               <DefinitionItem label="Amount" value={bill.amount} />
             </DefinitionList>
           </CardBody>
